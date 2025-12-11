@@ -3,387 +3,429 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NDF DEV MAP TEST</title>
+    <title>NDF Dev Maps</title>
     
     <link href="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
 
     <style>
-        body { margin: 0; padding: 0; font-family: 'Sarabun', sans-serif; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        body { margin: 0; padding: 0; font-family: 'Prompt', sans-serif; overflow: hidden; background: #f2f2f2; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 0; }
         
-        .search-container {
-            position: absolute;
-            top: 20px;
-            left: 20px;
-            z-index: 1000;
-            width: 340px;
+        /* SEARCH BAR */
+        .top-container { position: absolute; top: 15px; left: 15px; z-index: 100; width: 380px; max-width: 90%; }
+        .search-box {
+            background: white; border-radius: 24px; box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            padding: 2px 15px; display: flex; align-items: center; height: 48px; transition: all 0.3s;
         }
+        .search-box:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .search-icon { color: #5f6368; font-size: 18px; margin-right: 12px; }
+        input[type="text"] { flex-grow: 1; border: none; outline: none; font-size: 16px; font-family: 'Prompt'; color: #202124; }
+        .action-icon { cursor: pointer; color: #5f6368; padding: 8px; font-size: 18px; }
+        .divider { width: 1px; height: 24px; background: #dfe1e5; margin: 0 8px; }
 
-        .input-group {
-            display: flex;
-            align-items: center;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            padding: 5px 10px;
-        }
-
-        input[type="text"] {
-            flex-grow: 1;
-            padding: 10px;
-            border: none;
-            outline: none;
-            font-size: 16px;
-        }
-
-        .clear-btn {
-            cursor: pointer;
-            color: #999;
-            font-size: 20px;
-            padding: 0 5px;
-            display: none;
-        }
-        .clear-btn:hover { color: #333; }
-
+        /* SUGGESTIONS */
         #suggestions-list {
-            list-style: none;
-            margin: 5px 0 0 0;
-            padding: 0;
-            background: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            width: 100%;
-            max-height: 300px;
-            overflow-y: auto;
-            display: none;
+            list-style: none; margin: 5px 0 0 0; padding: 0; background: white; border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2); max-height: 300px; overflow-y: auto; display: none;
         }
+        #suggestions-list li { padding: 12px 18px; border-bottom: 1px solid #f1f3f4; cursor: pointer; display: flex; align-items: center; gap: 12px; }
+        #suggestions-list li:hover { background-color: #f8f9fa; }
 
-        #suggestions-list li {
-            padding: 10px 15px;
-            border-bottom: 1px solid #eee;
-            cursor: pointer;
-            font-size: 14px;
+        /* LAYER SWITCHER */
+        .layer-control {
+            position: absolute; top: 15px; right: 15px; z-index: 100;
+            background: white; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            width: 40px; height: 40px; overflow: hidden; transition: all 0.3s ease;
         }
-
-        #suggestions-list li:hover {
-            background-color: #f0f0f0;
-            color: #00B14F;
+        .layer-control:hover { width: 180px; height: auto; border-radius: 12px; }
+        
+        .layer-btn-main {
+            width: 40px; height: 40px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: #555; font-size: 20px;
         }
+        .layer-menu { padding: 5px 10px 10px 10px; opacity: 0; transition: opacity 0.2s 0.1s; }
+        .layer-control:hover .layer-menu { opacity: 1; }
+        .menu-header { font-size: 12px; color: #888; margin: 8px 0 4px 0; font-weight: 600; }
+        .menu-divider { height: 1px; background: #eee; margin: 5px 0; }
+        .mode-option {
+            display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px;
+            cursor: pointer; font-size: 14px; color: #333; transition: background 0.2s; border: 2px solid transparent;
+        }
+        .mode-option:hover { background: #f0f0f0; }
+        .mode-option.active { border-color: #00B14F; background: #e6f4ea; color: #00B14F; font-weight: 600; }
+        .mode-option.disabled { opacity: 0.5; pointer-events: none; filter: grayscale(1); }
+        .mode-img { width: 24px; text-align: center; }
 
-        .main-text { font-weight: bold; font-size: 15px; display: block; }
+        /* PLACE CARD */
+        .place-card {
+            position: absolute; bottom: 25px; left: 15px; width: 360px; max-width: 92%;
+            background: white; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            padding: 20px; z-index: 101; display: none; animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        .place-name { font-size: 20px; font-weight: 600; margin: 0 0 5px 0; }
+        .place-desc { font-size: 14px; color: #70757a; margin-bottom: 15px; }
+        .close-card { position: absolute; top: 20px; right: 20px; cursor: pointer; color: #70757a; }
+        .card-actions { display: flex; gap: 10px; }
+        .btn-action {
+            flex: 1; padding: 8px; border-radius: 20px; border: 1px solid #dadce0; background: white;
+            color: #1967d2; font-weight: 500; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px;
+        }
+        .btn-action:hover { background: #f1f8ff; }
+
+        /* CONTROLS */
+        .custom-controls { position: absolute; bottom: 120px; right: 15px; display: flex; flex-direction: column; gap: 10px; z-index: 99; }
+        .ctrl-btn {
+            width: 40px; height: 40px; background: white; border-radius: 2px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.3); border: none; cursor: pointer; font-size: 18px; color: #666;
+        }
+        .ctrl-btn:hover { color: #333; }
+        .maplibregl-ctrl-bottom-right { bottom: 30px !important; right: 15px !important; }
     </style>
 </head>
 <body>
 
-    <div class="search-container">
-        <div class="input-group">
-            <input type="text" id="searchInput" placeholder="พิมพ์ชื่อเขต/จังหวัด กด Enter..." autocomplete="off">
-            <span id="clearBtn" class="clear-btn">&times;</span> 
+    <div class="top-container">
+        <div class="search-box">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" id="searchInput" placeholder="ค้นหาใน NDF Dev Maps..." autocomplete="off">    
+            <div class="divider"></div>
+            <i class="fas fa-times action-icon" id="clearBtn" style="display:none;"></i>
         </div>
         <ul id="suggestions-list"></ul>
     </div>
 
+    <div class="layer-control">
+        <div class="layer-btn-main" id="mainLayerIcon"><i class="fas fa-layer-group"></i></div>
+        <div class="layer-menu">
+            <div class="menu-header">ประเภทแผนที่</div>
+            <div class="mode-option" id="opt-street" onclick="setBaseMap('street')">
+                <i class="fas fa-map mode-img"></i> <span>ค่าเริ่มต้น</span>
+            </div>
+            <div class="mode-option" id="opt-satellite" onclick="setBaseMap('satellite')">
+                <i class="fas fa-globe-asia mode-img"></i> <span>ดาวเทียม</span>
+            </div>
+            <div class="menu-divider"></div>
+            <div class="menu-header">รายละเอียด</div>
+            <div class="mode-option" id="opt-3d" onclick="toggle3DMode()">
+                <i class="fas fa-cube mode-img"></i> <span>ตึก 3 มิติ</span>
+            </div>
+        </div>
+    </div>
+
     <div id="map"></div>
 
+    <div class="place-card" id="placeCard">
+        <i class="fas fa-times close-card" onclick="closeCard()"></i>
+        <h2 class="place-name" id="cardTitle">ชื่อสถานที่</h2>
+        <p class="place-desc" id="cardSubtitle">รายละเอียด...</p>
+        <div class="card-actions">
+            <button class="btn-action" onclick="getDirections()"><i class="fas fa-directions"></i> เส้นทาง</button>
+            <button class="btn-action" onclick="copyCoords()"><i class="fas fa-share-alt"></i> แชร์</button>
+        </div>
+    </div>
+
+    <div class="custom-controls">
+        <button class="ctrl-btn" id="btnLocate" title="ตำแหน่งของฉัน"><i class="fas fa-crosshairs"></i></button>
+    </div>
+
     <script>
-        // ==========================================
-        // 1. CONFIGURATION
-        // ==========================================
         const awsRegion = "ap-southeast-1"; 
-        const mapName = "GrabMaps_Street"; 
-        const placeIndexName = "GrabMaps_Place";
         const apiKey = "v1.public.eyJqdGkiOiJmNzNkNjM0Yi1kNGE2LTQ2NTctOTZkNC1iYjY0ZjNhYjVkZGIifZYCmZRszQzkmn5JHctd9yiaEF_f-_BAMJiZK8r6PX880rWDvDBp-gs1oVAUA4kQKemDeSwwJgDKY2LryfyoVkMCgyllPcRKlzEx1dfC5pZ8YJSnV660ROtv3lzP5Q0Bxe0MHGBgBsf08vOx7eSbd6Ex2geCxD5TkoC159XVbrS3lIKs1Xvar08r4oF496cMGJ_smMnhP1arg68cBKoO0lwpgF3VgyqPYCE31bQbgZC5xA8La8SPM_kgxD6jsMzWlZV_p5gycAXRxwxzNNsjIf2eybtM8vLHa-XjgVyKM-Iq2LAS0bUGNDYq9-glAHgA7kkkbvJSQmbcZaWi4Kd1-vw.MzRjYzZmZGUtZmY3NC00NDZiLWJiMTktNTc4YjUxYTFlOGZi";
+        const placeIndexName = "GrabMaps_Place";
+        
+        const mapNameStreet = "GrabMaps_Street"; 
+        const mapNameSatellite = "Esri_Imagery"; 
 
-        const mapStyleUrl = `https://maps.geo.${awsRegion}.amazonaws.com/maps/v0/maps/${mapName}/style-descriptor?key=${apiKey}`;
+        const styleStreet = `https://maps.geo.${awsRegion}.amazonaws.com/maps/v0/maps/${mapNameStreet}/style-descriptor?key=${apiKey}`;
+        const styleSatellite = `https://maps.geo.${awsRegion}.amazonaws.com/maps/v0/maps/${mapNameSatellite}/style-descriptor?key=${apiKey}`;
 
-        // ==========================================
-        // 2. INITIALIZE MAP
-        // ==========================================
+        let appState = { baseMap: 'street', is3D: false };
+
         const map = new maplibregl.Map({
             container: 'map',
-            style: mapStyleUrl,
+            style: styleStreet,
             center: [100.5018, 13.7563], 
-            zoom: 12, 
-            attributionControl: false
+            zoom: 16, pitch: 0, attributionControl: false
         });
-        map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+        map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
+        const geolocate = new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true });
+        map.addControl(geolocate);
+        document.getElementById('btnLocate').addEventListener('click', () => geolocate.trigger());
+
+        // Initial UI Update
+        map.on('load', () => { updateUI(); });
         
-        let currentMarker = null;
-
-        map.on('load', () => {
-            map.addSource('boundary-source', {
-                'type': 'geojson',
-                'data': { 'type': 'FeatureCollection', 'features': [] }
-            });
-            
-            map.addLayer({
-                'id': 'boundary-line',
-                'type': 'line',
-                'source': 'boundary-source',
-                'paint': { 'line-color': '#FF8800', 'line-width': 3 }
-            });
-
-            map.addLayer({
-                'id': 'boundary-fill',
-                'type': 'fill',
-                'source': 'boundary-source',
-                'paint': { 'fill-color': '#FF8800', 'fill-opacity': 0.1 }
-            });
-            
-            map.getCanvas().style.cursor = 'pointer';
+        // Re-apply 3D when style changes
+        map.on('styledata', () => {
+            if (appState.is3D && appState.baseMap === 'street') {
+                add3DBuildings(); 
+            }
         });
 
-        // ==========================================
-        // 3. LOGIC & HELPERS
-        // ==========================================
-        function getLanguage(text) {
-            const thaiPattern = /[\u0E00-\u0E7F]/;
-            return thaiPattern.test(text) ? "th" : "en";
+        // -------------------------
+        // CLICK HANDLER (กู้คืนระบบคลิก)
+        // -------------------------
+        map.on('click', async (e) => {
+            // ป้องกันการคลิกทะลุ UI
+            if (e.originalEvent.target.closest('.top-container') || e.originalEvent.target.closest('.place-card') || e.originalEvent.target.closest('.layer-control') || e.originalEvent.target.closest('.custom-controls')) return;
+
+            const coords = e.lngLat;
+            selectedCoords = [coords.lng, coords.lat];
+            suggestionsList.style.display = 'none';
+            closeCard();
+            if (currentMarker) currentMarker.remove();
+
+            // 1. ปักหมุดทันที (UX: ให้ User เห็นว่ากดติด)
+            currentMarker = new maplibregl.Marker({ color: "#EA4335" }).setLngLat(coords).addTo(map);
+            showCard("กำลังโหลด...", `พิกัด: ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`);
+
+            // 2. ถามชื่อสถานที่ (Reverse Geocoding)
+            const url = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/search/position?key=${apiKey}`;
+            try {
+                const res = await fetch(url, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ Position: [coords.lng, coords.lat], MaxResults: 1, Language: "th" })
+                });
+                const data = await res.json();
+                
+                if (data.Results && data.Results.length > 0) {
+                    const place = data.Results[0].Place;
+                    showCard(place.Label, "ตำแหน่งที่เลือก");
+                    searchInput.value = place.Label;
+                    toggleClearButton(); // โชว์ปุ่มกากบาท
+                } else {
+                    showCard("หมุดที่เลือก", "ไม่มีข้อมูลสถานที่");
+                }
+            } catch(e) { 
+                console.error(e); 
+                showCard("หมุดที่เลือก", "ไม่สามารถเชื่อมต่อ Server ได้");
+            }
+        });
+
+        // -------------------------
+        // UI & STATE LOGIC
+        // -------------------------
+        function setBaseMap(mode) {
+            if (appState.baseMap === mode) return;
+            appState.baseMap = mode;
+            if (mode === 'satellite') {
+                appState.is3D = false;
+                map.setStyle(styleSatellite);
+            } else {
+                map.setStyle(styleStreet);
+            }
+            updateUI();
         }
 
+        function toggle3DMode() {
+            if (appState.baseMap === 'satellite') return;
+            appState.is3D = !appState.is3D;
+            if (appState.is3D) {
+                map.easeTo({ pitch: 60, duration: 1000 });
+                add3DBuildings();
+            } else {
+                map.easeTo({ pitch: 0, duration: 1000 });
+                if (map.getLayer('3d-buildings-v1')) map.removeLayer('3d-buildings-v1');
+                if (map.getLayer('3d-buildings-v2')) map.removeLayer('3d-buildings-v2');
+            }
+            updateUI();
+        }
+
+        function updateUI() {
+            const btnStreet = document.getElementById('opt-street');
+            const btnSat = document.getElementById('opt-satellite');
+            const btn3D = document.getElementById('opt-3d');
+            const mainIcon = document.getElementById('mainLayerIcon');
+
+            btnStreet.classList.remove('active');
+            btnSat.classList.remove('active');
+            btn3D.classList.remove('active', 'disabled');
+
+            if (appState.baseMap === 'street') {
+                btnStreet.classList.add('active');
+                mainIcon.innerHTML = appState.is3D ? '<i class="fas fa-cube" style="color:#00B14F;"></i>' : '<i class="fas fa-layer-group"></i>';
+            } else {
+                btnSat.classList.add('active');
+                btn3D.classList.add('disabled');
+                mainIcon.innerHTML = '<i class="fas fa-globe-asia" style="color:#00B14F;"></i>';
+            }
+            if (appState.is3D) btn3D.classList.add('active');
+        }
+
+        // -------------------------
+        // 3D BUILDINGS (SAFE MODE)
+        // -------------------------
+        function add3DBuildings() {
+            if (map.getLayer('3d-buildings-v1') || map.getLayer('3d-buildings-v2')) return;
+
+            // หาส่วนของ Source
+            let sourceId = 'grabmaptiles'; 
+            const style = map.getStyle();
+            for (const layer of style.layers) {
+                if (layer.source && layer.source !== 'composite') { sourceId = layer.source; break; }
+            }
+
+            // เพิ่ม Layer แบบระบุชื่อตรงๆ (ไม่ต้องเดาแล้ว)
+            // 1. ลอง Building (ตัวใหญ่)
+            if (!map.getLayer('3d-buildings-v1')) {
+                map.addLayer({
+                    'id': '3d-buildings-v1',
+                    'source': sourceId,
+                    'source-layer': 'Building',
+                    'type': 'fill-extrusion',
+                    'minzoom': 13,
+                    'paint': {
+                        'fill-extrusion-color': '#ddd',
+                        'fill-extrusion-height': 20, // Force Height
+                        'fill-extrusion-opacity': 0.8
+                    }
+                });
+            }
+            // 2. ลอง building (ตัวเล็ก)
+            if (!map.getLayer('3d-buildings-v2')) {
+                map.addLayer({
+                    'id': '3d-buildings-v2',
+                    'source': sourceId,
+                    'source-layer': 'building',
+                    'type': 'fill-extrusion',
+                    'minzoom': 13,
+                    'paint': {
+                        'fill-extrusion-color': '#ddd',
+                        'fill-extrusion-height': 20, // Force Height
+                        'fill-extrusion-opacity': 0.8
+                    }
+                });
+            }
+        }
+
+        // -------------------------
+        // SEARCH LOGIC
+        // -------------------------
         const searchInput = document.getElementById('searchInput');
         const suggestionsList = document.getElementById('suggestions-list');
         const clearBtn = document.getElementById('clearBtn');
         let debounceTimer;
 
-        // Auto Suggestion (แสดงรายการแนะนำ)
+        function toggleClearButton() {
+            clearBtn.style.display = searchInput.value.length > 0 ? 'block' : 'none';
+        }
+
         searchInput.addEventListener('input', function() {
-            const text = this.value;
             toggleClearButton();
             clearTimeout(debounceTimer);
-            
-            if (text.length < 2) {
-                suggestionsList.style.display = 'none';
-                return;
-            }
-
-            debounceTimer = setTimeout(() => {
-                fetchSuggestions(text);
-            }, 300);
+            if (this.value.length < 2) { suggestionsList.style.display = 'none'; return; }
+            debounceTimer = setTimeout(() => fetchSuggestions(this.value), 300);
         });
 
-        // ปุ่ม ENTER (ค้นหาและไปทันที)
         searchInput.addEventListener('keypress', async function(e) {
             if (e.key === 'Enter') {
-                e.preventDefault();
+                e.preventDefault(); 
                 suggestionsList.style.display = 'none';
-                const text = this.value;
-                if(text) {
-                    await searchAndGo(text); // เรียกใช้ฟังก์ชันใหม่
-                }
+                if(this.value) await searchAndGo(this.value);
             }
         });
 
-        // ==========================================
-        // 4. API FUNCTIONS
-        // ==========================================
-        
+        clearBtn.addEventListener('click', () => {
+            searchInput.value = ''; 
+            suggestionsList.style.display = 'none'; 
+            toggleClearButton();
+            closeCard(); 
+            if(currentMarker) currentMarker.remove();
+        });
+
         async function fetchSuggestions(text) {
             const url = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/search/suggestions?key=${apiKey}`;
-            const center = map.getCenter(); 
-            const currentLang = getLanguage(text);
-
             try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        Text: text,
-                        MaxResults: 5,
-                        Language: currentLang,
-                        BiasPosition: [center.lng, center.lat] 
-                    })
+                const res = await fetch(url, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ Text: text, MaxResults: 5, Language: "th", BiasPosition: [map.getCenter().lng, map.getCenter().lat] })
                 });
-                const data = await response.json();
-                showSuggestions(data.Results);
-            } catch (error) { console.error("Suggestion Error:", error); }
+                const data = await res.json();
+                renderSuggestions(data.Results);
+            } catch(e) { console.error(e); }
         }
 
-        // --- ฟังก์ชันค้นหาตอนกด Enter (ปรับปรุงใหม่) ---
-        async function searchAndGo(text) {
-            const url = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/search/text?key=${apiKey}`;
-            const currentLang = getLanguage(text);
-            
-            // หมายเหตุ: ตัด BiasPosition ออกเพื่อให้ค้นหา จังหวัด/เขต ได้แม่นขึ้น ไม่ยึดติดกับที่อยู่ปัจจุบัน
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        Text: text,
-                        MaxResults: 1, 
-                        Language: currentLang
-                    })
-                });
-                const data = await response.json();
-                
-                console.log("Search Result:", data); // ดู Log ใน Console ได้ถ้ามีปัญหา
-
-                if(data.Results && data.Results.length > 0) {
-                    const place = data.Results[0].Place;
-                    renderPlaceOnMap(place); // เจออะไรก็ไปแสดงผลเลย ไม่บล็อกแล้ว
-                } else {
-                    alert("ไม่พบสถานที่: " + text);
-                }
-            } catch (error) { console.error("Search Error:", error); }
-        }
-
-        async function selectPlaceFromSuggestion(placeId, placeText) {
-            suggestionsList.style.display = 'none';
-            const url = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/places/${placeId}?key=${apiKey}`;
-            const lang = getLanguage(placeText); 
-
-            try {
-                const response = await fetch(`${url}&language=${lang}`);
-                const data = await response.json();
-                renderPlaceOnMap(data.Place);
-            } catch (error) { console.error("Detail Error:", error); }
-        }
-
-        // ==========================================
-        // 5. RENDER LOGIC
-        // ==========================================
-        function renderPlaceOnMap(place) {
-            const coords = place.Geometry.Point; // [lng, lat]
-            const label = place.Label;
-            const bbox = place.Geometry.BoundingBox; // อาจจะมี หรือ ไม่มี ก็ได้
-
-            searchInput.value = label;
-            if (currentMarker) currentMarker.remove();
-
-            // 1. ถ้ามีขอบเขต -> วาดเส้น + Zoom Fit
-            if (bbox) {
-                map.fitBounds(
-                    [[bbox[0], bbox[1]], [bbox[2], bbox[3]]], 
-                    { padding: 50, maxZoom: 16 }
-                );
-                drawBoundaryBox(bbox);
-                
-                currentMarker = new maplibregl.Marker({ color: "#FF8800" })
-                    .setLngLat(coords)
-                    .setPopup(new maplibregl.Popup().setHTML(`<b>${label}</b><br>เขตพื้นที่`))
-                    .addTo(map);
-
-            } else {
-            // 2. ถ้าไม่มีขอบเขต -> แค่ Zoom ไปหา + ปักหมุด
-                map.flyTo({ center: coords, zoom: 14 });
-                clearBoundaryBox(); // ลบเส้นเก่าออก
-
-                currentMarker = new maplibregl.Marker({ color: "#00B14F" })
-                    .setLngLat(coords)
-                    .setPopup(new maplibregl.Popup().setHTML(`<b>${label}</b>`))
-                    .addTo(map);
-            }
-            
-            if(currentMarker) currentMarker.togglePopup();
-        }
-
-        // ==========================================
-        // 6. CLICK ANYWHERE
-        // ==========================================
-        map.on('click', async function (e) {
-            if (e.originalEvent.target.closest('.search-container')) return;
-
-            const coords = e.lngLat;
-            suggestionsList.style.display = 'none'; 
-            if (currentMarker) currentMarker.remove();
-            clearBoundaryBox(); 
-
-            const popup = new maplibregl.Popup({ offset: 25 })
-                .setHTML('<div style="text-align:center;">กำลังระบุตำแหน่ง...</div>');
-
-            currentMarker = new maplibregl.Marker({ color: "#FF0000" })
-                .setLngLat(coords)
-                .setPopup(popup)
-                .addTo(map);
-            currentMarker.togglePopup();
-
-            const url = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/search/position?key=${apiKey}`;
-
-            try {
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        Position: [coords.lng, coords.lat],
-                        MaxResults: 1,
-                        Language: "th" 
-                    })
-                });
-                const data = await response.json();
-                
-                if (data.Results && data.Results.length > 0) {
-                    const label = data.Results[0].Place.Label;
-                    popup.setHTML(`
-                        <div style="font-family:'Sarabun'; text-align:center;">
-                            <h4 style="margin:0; color:#00B14F;">${label}</h4>
-                            <p style="margin:5px 0 0; font-size:12px; color:#666;">
-                                พิกัด: ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}
-                            </p>
-                        </div>
-                    `);
-                    searchInput.value = label;
-                } else {
-                    popup.setHTML('ไม่พบชื่อสถานที่');
-                }
-            } catch (error) { console.error(error); }
-        });
-
-        // ==========================================
-        // UI UTILITIES
-        // ==========================================
-        function showSuggestions(results) {
+        function renderSuggestions(results) {
             suggestionsList.innerHTML = '';
-            if (!results || results.length === 0) {
-                suggestionsList.style.display = 'none';
-                return;
-            }
+            if (!results || results.length === 0) { suggestionsList.style.display = 'none'; return; }
             results.forEach(item => {
                 const li = document.createElement('li');
-                li.innerHTML = `<span class="main-text">${item.Text}</span>`;
-                li.onclick = () => selectPlaceFromSuggestion(item.PlaceId, item.Text);
+                li.innerHTML = `<i class="fas fa-map-marker-alt" style="color:#777;"></i> <span>${item.Text}</span>`;
+                li.onclick = () => selectPlace(item.PlaceId, item.Text);
                 suggestionsList.appendChild(li);
             });
             suggestionsList.style.display = 'block';
         }
 
-        function drawBoundaryBox(bbox) {
-            const polygon = {
-                'type': 'Feature',
-                'geometry': {
-                    'type': 'Polygon',
-                    'coordinates': [[
-                        [bbox[0], bbox[1]], [bbox[2], bbox[1]], 
-                        [bbox[2], bbox[3]], [bbox[0], bbox[3]], [bbox[0], bbox[1]]
-                    ]]
-                }
-            };
-            if(map.getSource('boundary-source')) {
-                map.getSource('boundary-source').setData({ 'type': 'FeatureCollection', 'features': [polygon] });
-            }
-        }
-
-        function clearBoundaryBox() {
-            if (map.getSource('boundary-source')) {
-                map.getSource('boundary-source').setData({ 'type': 'FeatureCollection', 'features': [] });
-            }
-        }
-
-        function toggleClearButton() {
-            clearBtn.style.display = searchInput.value.length > 0 ? 'flex' : 'none';
-        }
-
-        clearBtn.addEventListener('click', function() {
-            searchInput.value = '';
+        async function selectPlace(placeId, text) {
             suggestionsList.style.display = 'none';
+            const url = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/places/${placeId}?key=${apiKey}`;
+            try {
+                const res = await fetch(`${url}&language=th`);
+                const data = await res.json();
+                renderPlace(data.Place);
+            } catch(e) { console.error(e); }
+        }
+
+        async function searchAndGo(text) {
+            const url = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/search/text?key=${apiKey}`;
+            try {
+                const res = await fetch(url, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ Text: text, MaxResults: 1, Language: "th" })
+                });
+                const data = await res.json();
+                if(data.Results && data.Results.length > 0) {
+                    renderPlace(data.Results[0].Place);
+                } else {
+                    alert("ไม่พบสถานที่");
+                }
+            } catch(e) { console.error(e); }
+        }
+
+        function renderPlace(place) {
+            const coords = place.Geometry.Point;
+            searchInput.value = place.Label;
             toggleClearButton();
-            searchInput.focus();
             if (currentMarker) currentMarker.remove();
-            clearBoundaryBox();
-        });
+
+            if (place.Geometry.BoundingBox) {
+                 map.fitBounds([[place.Geometry.BoundingBox[0], place.Geometry.BoundingBox[1]], [place.Geometry.BoundingBox[2], place.Geometry.BoundingBox[3]]], { padding: 100 });
+                 showCard(place.Label, "เขต/พื้นที่");
+            } else {
+                map.flyTo({ center: coords, zoom: 17 });
+                currentMarker = new maplibregl.Marker({ color: "#EA4335" }).setLngLat(coords).addTo(map);
+                showCard(place.Label, "สถานที่");
+            }
+        }
+
+        // -------------------------
+        // HELPERS
+        // -------------------------
+        let currentMarker = null;
+        let selectedCoords = null;
+
+        function showCard(title, subtitle) {
+            document.getElementById('cardTitle').innerText = title;
+            document.getElementById('cardSubtitle').innerText = subtitle;
+            document.getElementById('placeCard').style.display = 'block';
+        }
+        function closeCard() { document.getElementById('placeCard').style.display = 'none'; }
         
-        toggleClearButton();
+        function getDirections() { 
+            if(selectedCoords) window.open(`https://www.google.com/maps/dir/?api=1&destination=${selectedCoords[1]},${selectedCoords[0]}`, '_blank'); 
+        }
+        function copyCoords() { 
+            if(selectedCoords) { 
+                navigator.clipboard.writeText(`${selectedCoords[1]}, ${selectedCoords[0]}`); 
+                alert("คัดลอกพิกัดแล้ว"); 
+            } 
+        }
 
     </script>
 </body>
