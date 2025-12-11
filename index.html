@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My GrabMaps App</title>
+    <title>GrabMaps Auto Suggestion</title>
     
     <link href="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
@@ -12,66 +12,90 @@
         body { margin: 0; padding: 0; font-family: 'Sarabun', sans-serif; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; }
         
-        /* สไตล์ของกล่องค้นหา */
+        /* --- Styles สำหรับกล่องค้นหาและ Suggestion --- */
         .search-container {
             position: absolute;
             top: 20px;
             left: 20px;
             z-index: 1000;
+            width: 320px;
+        }
+
+        .input-group {
+            display: flex;
             background: white;
-            padding: 10px;
             border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-            display: flex;
-            gap: 5px;
-            width: 300px;
+            padding: 5px;
         }
 
         input[type="text"] {
             flex-grow: 1;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-            outline: none;
-        }
-
-        button {
-            padding: 8px 15px;
-            background-color: #00B14F; /* สีเขียว Grab */
-            color: white;
+            padding: 10px;
             border: none;
-            border-radius: 4px;
-            cursor: pointer;
-            font-weight: bold;
+            outline: none;
+            font-size: 16px;
+            border-radius: 8px;
         }
 
-        button:hover { background-color: #008c3e; }
+        /* รายการคำแนะนำที่เด้งขึ้นมา */
+        #suggestions-list {
+            list-style: none;
+            margin: 5px 0 0 0;
+            padding: 0;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 100%;
+            max-height: 300px;
+            overflow-y: auto;
+            display: none; /* ซ่อนไว้ก่อน */
+        }
 
-        .maplibregl-popup-content { padding: 15px; border-radius: 8px; }
+        #suggestions-list li {
+            padding: 10px 15px;
+            border-bottom: 1px solid #eee;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        #suggestions-list li:hover {
+            background-color: #f0f0f0;
+            color: #00B14F; /* สีเขียว Grab */
+        }
+
+        #suggestions-list li:last-child { border-bottom: none; }
+        
+        /* สไตล์ตัวหนาในคำแนะนำ */
+        .main-text { font-weight: bold; font-size: 15px; }
+        .secondary-text { font-size: 12px; color: #666; display: block;}
+
     </style>
 </head>
 <body>
 
     <div class="search-container">
-        <input type="text" id="searchInput" placeholder="ค้นหาสถานที่ (เช่น สยาม)...">
-        <button onclick="searchPlace()">ค้นหา</button>
+        <div class="input-group">
+            <input type="text" id="searchInput" placeholder="พิมพ์ชื่อสถานที่ (เช่น สยาม)..." autocomplete="off">
+        </div>
+        <ul id="suggestions-list"></ul>
     </div>
 
     <div id="map"></div>
 
     <script>
         // ==========================================
-        // CONFIGURATION
+        // 1. CONFIGURATION (ตั้งค่า)
         // ==========================================
         const awsRegion = "ap-southeast-1"; 
         const mapName = "GrabMaps_Street"; 
-        const placeIndexName = "GrabMaps_Place"; // **ใส่ชื่อ Place Index ที่สร้างใหม่ตรงนี้**
+        const placeIndexName = "GrabMaps_Place"; // **ต้องตรงกับที่สร้างใน AWS**
         const apiKey = "v1.public.eyJqdGkiOiJmNzNkNjM0Yi1kNGE2LTQ2NTctOTZkNC1iYjY0ZjNhYjVkZGIifZYCmZRszQzkmn5JHctd9yiaEF_f-_BAMJiZK8r6PX880rWDvDBp-gs1oVAUA4kQKemDeSwwJgDKY2LryfyoVkMCgyllPcRKlzEx1dfC5pZ8YJSnV660ROtv3lzP5Q0Bxe0MHGBgBsf08vOx7eSbd6Ex2geCxD5TkoC159XVbrS3lIKs1Xvar08r4oF496cMGJ_smMnhP1arg68cBKoO0lwpgF3VgyqPYCE31bQbgZC5xA8La8SPM_kgxD6jsMzWlZV_p5gycAXRxwxzNNsjIf2eybtM8vLHa-XjgVyKM-Iq2LAS0bUGNDYq9-glAHgA7kkkbvJSQmbcZaWi4Kd1-vw.MzRjYzZmZGUtZmY3NC00NDZiLWJiMTktNTc4YjUxYTFlOGZi";
 
         const mapStyleUrl = `https://maps.geo.${awsRegion}.amazonaws.com/maps/v0/maps/${mapName}/style-descriptor?key=${apiKey}`;
 
         // ==========================================
-        // INITIALIZE MAP
+        // 2. INITIALIZE MAP (สร้างแผนที่)
         // ==========================================
         const map = new maplibregl.Map({
             container: 'map',
@@ -80,68 +104,125 @@
             zoom: 12, 
             attributionControl: false
         });
-
         map.addControl(new maplibregl.NavigationControl(), 'top-right');
-
-        // ตัวแปรเก็บ Marker ปัจจุบัน (เพื่อลบออกเมื่อค้นหาใหม่)
         let currentMarker = null;
 
         // ==========================================
-        // FUNCTION: ค้นหาสถานที่
+        // 3. AUTO SUGGESTION LOGIC
         // ==========================================
-        async function searchPlace() {
-            const searchText = document.getElementById('searchInput').value;
-            if (!searchText) return;
+        const searchInput = document.getElementById('searchInput');
+        const suggestionsList = document.getElementById('suggestions-list');
+        let debounceTimer;
 
-            // URL สำหรับยิงไปหา AWS Location Service (Place Index)
-            const searchUrl = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/search/text?key=${apiKey}`;
+        // เมื่อมีการพิมพ์ (Input Event)
+        searchInput.addEventListener('input', function() {
+            const text = this.value;
+            
+            // ยกเลิกการค้นหาเก่าถ้ายูเซอร์พิมพ์เร็วเกินไป (Debounce)
+            clearTimeout(debounceTimer);
+            
+            if (text.length < 2) { // ถ้าตัวอักษรน้อยกว่า 2 ตัว ไม่ต้องหา
+                suggestionsList.style.display = 'none';
+                return;
+            }
 
+            // รอ 300ms หลังจากหยุดพิมพ์ค่อยยิง API (เพื่อประหยัด Request)
+            debounceTimer = setTimeout(() => {
+                fetchSuggestions(text);
+            }, 300);
+        });
+
+        // ฟังก์ชันดึงรายการแนะนำจาก AWS (GrabMaps)
+        async function fetchSuggestions(text) {
+            const url = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/search/suggestions?key=${apiKey}`;
+            
             try {
-                // ยิง Request ไปค้นหา
-                const response = await fetch(searchUrl, {
+                const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        Text: searchText,
-                        MaxResults: 1 // เอาผลลัพธ์แรกสุดที่แม่นที่สุด
+                        Text: text,
+                        MaxResults: 5, // เอามาโชว์ 5 อัน
+                        Language: "th" // เน้นภาษาไทย
                     })
                 });
-
                 const data = await response.json();
-
-                if (data.Results && data.Results.length > 0) {
-                    const place = data.Results[0].Place;
-                    const coords = place.Geometry.Point; // [Long, Lat]
-                    const label = place.Label;
-
-                    // 1. ลบ Marker เก่า (ถ้ามี)
-                    if (currentMarker) currentMarker.remove();
-
-                    // 2. ขยับแผนที่ไปจุดนั้น (FlyTo)
-                    map.flyTo({ center: coords, zoom: 15 });
-
-                    // 3. ปัก Marker ใหม่
-                    currentMarker = new maplibregl.Marker({ color: "#FF0000" }) // สีแดง
-                        .setLngLat(coords)
-                        .setPopup(new maplibregl.Popup().setHTML(`<b>${label}</b>`))
-                        .addTo(map);
-                    
-                    // เปิด Popup ทันที
-                    currentMarker.togglePopup();
-
-                } else {
-                    alert("ไม่พบสถานที่ครับ ลองค้นหาคำอื่นดู");
-                }
-
+                showSuggestions(data.Results);
             } catch (error) {
-                console.error("Error searching place:", error);
-                alert("เกิดข้อผิดพลาดในการค้นหา (ตรวจสอบชื่อ Place Index หรือ API Key)");
+                console.error("Error fetching suggestions:", error);
             }
         }
 
-        // เพิ่มลูกเล่น: กด Enter ในช่องค้นหาได้เลย
-        document.getElementById('searchInput').addEventListener('keypress', function (e) {
-            if (e.key === 'Enter') searchPlace();
+        // ฟังก์ชันแสดงรายการ HTML
+        function showSuggestions(results) {
+            suggestionsList.innerHTML = ''; // เคลียร์ของเก่า
+            
+            if (results.length === 0) {
+                suggestionsList.style.display = 'none';
+                return;
+            }
+
+            results.forEach(item => {
+                const li = document.createElement('li');
+                // แสดงชื่อสถานที่
+                li.innerHTML = `
+                    <span class="main-text">${item.Text}</span>
+                    <span class="secondary-text">${item.PlaceId.substring(0, 20)}...</span> 
+                `; // *PlaceID ของจริงยาวมาก ตัดมาโชว์แค่ให้รู้ว่ามี
+
+                // เมื่อคลิกที่รายการ
+                li.onclick = () => selectPlace(item.PlaceId);
+                suggestionsList.appendChild(li);
+            });
+
+            suggestionsList.style.display = 'block';
+        }
+
+        // ==========================================
+        // 4. GET PLACE DETAIL (เมื่อเลือกรายการ)
+        // ==========================================
+        async function selectPlace(placeId) {
+            // ซ่อนรายการแนะนำ
+            suggestionsList.style.display = 'none';
+
+            // ต้องเรียก API อีกรอบเพื่อเอา "พิกัด (Lat/Long)" จาก PlaceId
+            const url = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/places/${placeId}?key=${apiKey}`;
+
+            try {
+                const response = await fetch(url); // Default คือ GET
+                const data = await response.json();
+                
+                const place = data.Place;
+                const coords = place.Geometry.Point;
+                const label = place.Label;
+
+                // ใส่ชื่อลงในช่องค้นหา
+                searchInput.value = label;
+
+                // 1. ลบ Marker เก่า
+                if (currentMarker) currentMarker.remove();
+
+                // 2. ขยับแผนที่
+                map.flyTo({ center: coords, zoom: 16 });
+
+                // 3. ปัก Marker ใหม่
+                currentMarker = new maplibregl.Marker({ color: "#00B14F" })
+                    .setLngLat(coords)
+                    .setPopup(new maplibregl.Popup().setHTML(`<b>${label}</b>`))
+                    .addTo(map);
+                
+                currentMarker.togglePopup();
+
+            } catch (error) {
+                console.error("Error getting place details:", error);
+            }
+        }
+
+        // ซ่อนรายการเมื่อคลิกพื้นที่อื่นในแมพ
+        document.addEventListener('click', function(e) {
+            if (!document.querySelector('.search-container').contains(e.target)) {
+                suggestionsList.style.display = 'none';
+            }
         });
 
     </script>
