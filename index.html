@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My GrabMaps App</title>
+    
+    <link href="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
+
+    <style>
+        body { margin: 0; padding: 0; font-family: 'Sarabun', sans-serif; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; }
+        
+        /* สไตล์ของกล่องค้นหา */
+        .search-container {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 5px;
+            width: 300px;
+        }
+
+        input[type="text"] {
+            flex-grow: 1;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            outline: none;
+        }
+
+        button {
+            padding: 8px 15px;
+            background-color: #00B14F; /* สีเขียว Grab */
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover { background-color: #008c3e; }
+
+        .maplibregl-popup-content { padding: 15px; border-radius: 8px; }
+    </style>
+</head>
+<body>
+
+    <div class="search-container">
+        <input type="text" id="searchInput" placeholder="ค้นหาสถานที่ (เช่น สยาม)...">
+        <button onclick="searchPlace()">ค้นหา</button>
+    </div>
+
+    <div id="map"></div>
+
+    <script>
+        // ==========================================
+        // CONFIGURATION
+        // ==========================================
+        const awsRegion = "ap-southeast-1"; 
+        const mapName = "GrabMaps_Street"; 
+        const placeIndexName = "GrabMaps_Place"; // **ใส่ชื่อ Place Index ที่สร้างใหม่ตรงนี้**
+        const apiKey = "v1.public.eyJqdGkiOiJmNzNkNjM0Yi1kNGE2LTQ2NTctOTZkNC1iYjY0ZjNhYjVkZGIifZYCmZRszQzkmn5JHctd9yiaEF_f-_BAMJiZK8r6PX880rWDvDBp-gs1oVAUA4kQKemDeSwwJgDKY2LryfyoVkMCgyllPcRKlzEx1dfC5pZ8YJSnV660ROtv3lzP5Q0Bxe0MHGBgBsf08vOx7eSbd6Ex2geCxD5TkoC159XVbrS3lIKs1Xvar08r4oF496cMGJ_smMnhP1arg68cBKoO0lwpgF3VgyqPYCE31bQbgZC5xA8La8SPM_kgxD6jsMzWlZV_p5gycAXRxwxzNNsjIf2eybtM8vLHa-XjgVyKM-Iq2LAS0bUGNDYq9-glAHgA7kkkbvJSQmbcZaWi4Kd1-vw.MzRjYzZmZGUtZmY3NC00NDZiLWJiMTktNTc4YjUxYTFlOGZi";
+
+        const mapStyleUrl = `https://maps.geo.${awsRegion}.amazonaws.com/maps/v0/maps/${mapName}/style-descriptor?key=${apiKey}`;
+
+        // ==========================================
+        // INITIALIZE MAP
+        // ==========================================
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: mapStyleUrl,
+            center: [100.5018, 13.7563], 
+            zoom: 12, 
+            attributionControl: false
+        });
+
+        map.addControl(new maplibregl.NavigationControl(), 'top-right');
+
+        // ตัวแปรเก็บ Marker ปัจจุบัน (เพื่อลบออกเมื่อค้นหาใหม่)
+        let currentMarker = null;
+
+        // ==========================================
+        // FUNCTION: ค้นหาสถานที่
+        // ==========================================
+        async function searchPlace() {
+            const searchText = document.getElementById('searchInput').value;
+            if (!searchText) return;
+
+            // URL สำหรับยิงไปหา AWS Location Service (Place Index)
+            const searchUrl = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/search/text?key=${apiKey}`;
+
+            try {
+                // ยิง Request ไปค้นหา
+                const response = await fetch(searchUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        Text: searchText,
+                        MaxResults: 1 // เอาผลลัพธ์แรกสุดที่แม่นที่สุด
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.Results && data.Results.length > 0) {
+                    const place = data.Results[0].Place;
+                    const coords = place.Geometry.Point; // [Long, Lat]
+                    const label = place.Label;
+
+                    // 1. ลบ Marker เก่า (ถ้ามี)
+                    if (currentMarker) currentMarker.remove();
+
+                    // 2. ขยับแผนที่ไปจุดนั้น (FlyTo)
+                    map.flyTo({ center: coords, zoom: 15 });
+
+                    // 3. ปัก Marker ใหม่
+                    currentMarker = new maplibregl.Marker({ color: "#FF0000" }) // สีแดง
+                        .setLngLat(coords)
+                        .setPopup(new maplibregl.Popup().setHTML(`<b>${label}</b>`))
+                        .addTo(map);
+                    
+                    // เปิด Popup ทันที
+                    currentMarker.togglePopup();
+
+                } else {
+                    alert("ไม่พบสถานที่ครับ ลองค้นหาคำอื่นดู");
+                }
+
+            } catch (error) {
+                console.error("Error searching place:", error);
+                alert("เกิดข้อผิดพลาดในการค้นหา (ตรวจสอบชื่อ Place Index หรือ API Key)");
+            }
+        }
+
+        // เพิ่มลูกเล่น: กด Enter ในช่องค้นหาได้เลย
+        document.getElementById('searchInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') searchPlace();
+        });
+
+    </script>
+</body>
+</html>
