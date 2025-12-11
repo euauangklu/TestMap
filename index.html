@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GrabMaps Auto Suggestion</title>
+    <title>NDF Dev MapTest</title>
     
     <link href="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
@@ -70,6 +70,30 @@
         .main-text { font-weight: bold; font-size: 15px; }
         .secondary-text { font-size: 12px; color: #666; display: block;}
 
+        .clear-btn {
+    cursor: pointer;
+    color: #999;
+    font-size: 20px;
+    padding: 0 12px;
+    display: none; /* ซ่อนไว้ก่อน ถ้ายังไม่ได้พิมพ์อะไร */
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+}
+
+.clear-btn:hover {
+    color: #333; /* เมาส์ชี้แล้วเข้มขึ้น */
+}
+
+/* ปรับให้ input-group จัด layout แบบ flex ให้สวยงาม */
+.input-group {
+    display: flex;
+    align-items: center; /* จัดกึ่งกลางแนวตั้ง */
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    padding: 5px;
+}
     </style>
 </head>
 <body>
@@ -77,6 +101,8 @@
     <div class="search-container">
         <div class="input-group">
             <input type="text" id="searchInput" placeholder="พิมพ์ชื่อสถานที่ (เช่น สยาม)..." autocomplete="off">
+            
+            <span id="clearBtn" class="clear-btn">&times;</span> 
         </div>
         <ul id="suggestions-list"></ul>
     </div>
@@ -136,14 +162,21 @@
         async function fetchSuggestions(text) {
             const url = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/search/suggestions?key=${apiKey}`;
             
+            // 1. ดึงจุดกึ่งกลางของแผนที่ปัจจุบันออกมา
+            const center = map.getCenter(); 
+            // จะได้ค่าเป็น {lng: ..., lat: ...}
+
             try {
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         Text: text,
-                        MaxResults: 5, // เอามาโชว์ 5 อัน
-                        Language: "th" // เน้นภาษาไทย
+                        MaxResults: 5,
+                        Language: "th",
+                        
+                        // 2. เพิ่มบรรทัดนี้: บอกให้เน้นหาแถวๆ ที่เราดูอยู่ (BiasPosition)
+                        BiasPosition: [center.lng, center.lat] 
                     })
                 });
                 const data = await response.json();
@@ -217,7 +250,110 @@
                 console.error("Error getting place details:", error);
             }
         }
+        // ==========================================
+        // 5. CLICK ANYWHERE (จิ้มตรงไหนก็ปักหมุด)
+        // ==========================================
+        
+        map.on('click', async function (e) {
+            const coords = e.lngLat; // พิกัดที่คลิก {lng, lat}
 
+            // 1. ลบ Marker เก่าออกก่อน (ถ้ามี)
+            if (currentMarker) currentMarker.remove();
+
+            // 2. สร้าง Popup รอไว้ก่อน (ใส่ข้อความ Loading)
+            const popup = new maplibregl.Popup({ offset: 25 })
+                .setHTML('<div style="text-align:center;">กำลังระบุตำแหน่ง...</div>');
+
+            // 3. ปักหมุดใหม่ทันที (สีแดง)
+            currentMarker = new maplibregl.Marker({ color: "#FF0000" })
+                .setLngLat(coords)
+                .setPopup(popup)
+                .addTo(map);
+
+            // เปิด Popup ทันทีเพื่อให้รู้ว่ากดติดแล้ว
+            currentMarker.togglePopup();
+
+            // 4. เรียก API เพื่อถามชื่อสถานที่ (Reverse Geocoding)
+            // ใช้ Place Index ตัวเดิมที่มีอยู่
+            const url = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/search/position?key=${apiKey}`;
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        Position: [coords.lng, coords.lat], // ส่งพิกัดไป
+                        MaxResults: 1,
+                        Language: "th" // ขอชื่อภาษาไทย
+                    })
+                });
+
+                const data = await response.json();
+                
+                // 5. ดึงข้อมูลมาแสดง
+                if (data.Results && data.Results.length > 0) {
+                    const place = data.Results[0].Place;
+                    const label = place.Label; // ชื่อสถานที่เต็มๆ หรือชื่อถนน
+                    
+                    // อัปเดตข้อความใน Popup เป็นชื่อจริง
+                    popup.setHTML(`
+                        <div style="font-family:'Sarabun'; text-align:center;">
+                            <h4 style="margin:0; color:#00B14F;">${label}</h4>
+                            <p style="margin:5px 0 0; font-size:12px; color:#666;">
+                                พิกัด: ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}
+                            </p>
+                        </div>
+                    `);
+                } else {
+                    // กรณีหาชื่อไม่เจอ (เช่น กลางป่าลึกมากๆ)
+                    popup.setHTML(`
+                        <div style="text-align:center;">
+                            <b>ไม่พบชื่อสถานที่</b><br>
+                            <small>${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}</small>
+                        </div>
+                    `);
+                }
+
+            } catch (error) {
+                console.error("Error reverse geocoding:", error);
+                popup.setHTML(`<div style="color:red;">เกิดข้อผิดพลาดในการโหลดชื่อ</div>`);
+            }
+        });
+
+        // เปลี่ยนเมาส์เป็นรูปนิ้ว เมื่อชี้บนแผนที่ (เพื่อให้รู้ว่าคลิกได้ทุกที่)
+        map.getCanvas().style.cursor = 'pointer';
+
+        const clearBtn = document.getElementById('clearBtn');
+
+// 1. ฟังก์ชัน: เช็คว่าควรโชว์ปุ่ม X ไหม
+function toggleClearButton() {
+    if (searchInput.value.length > 0) {
+        clearBtn.style.display = 'flex'; // มีข้อความ -> โชว์
+    } else {
+        clearBtn.style.display = 'none'; // ว่างเปล่า -> ซ่อน
+    }
+}
+
+// 2. Event: เมื่อมีการพิมพ์ (แก้ไขใน Event Listener เดิมได้เลย หรือเพิ่มใหม่ก็ได้)
+searchInput.addEventListener('input', function() {
+    toggleClearButton(); // เช็คปุ่ม X ทุกครั้งที่พิมพ์
+    
+    // ... โค้ด Debounce / Auto Suggest เดิมของคุณ ...
+});
+
+// 3. Event: เมื่อกดปุ่ม X
+clearBtn.addEventListener('click', function() {
+    searchInput.value = ''; // ลบข้อความ
+    suggestionsList.style.display = 'none'; // ซ่อนรายการแนะนำ
+    toggleClearButton(); // ซ่อนปุ่ม X ตัวเอง
+    searchInput.focus(); // เอา cursor กลับไปกระพริบในช่องพิมพ์
+    
+    // ถ้าอยากให้ลบ Marker ในแผนที่ด้วย ให้เปิดบรรทัดล่างนี้
+    // if (currentMarker) currentMarker.remove(); 
+});
+
+// เรียกใช้ครั้งแรก (เผื่อ Browser จำค่าเดิมไว้)
+toggleClearButton();
         // ซ่อนรายการเมื่อคลิกพื้นที่อื่นในแมพ
         document.addEventListener('click', function(e) {
             if (!document.querySelector('.search-container').contains(e.target)) {
