@@ -3,14 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NDF Maps: Smart Context</title>
+    <title>NDF Maps</title>
     
     <link href="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
+        /* CORE STYLES */
         body { margin: 0; padding: 0; font-family: 'Prompt', sans-serif; overflow: hidden; background: #f2f2f2; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 0; }
         
@@ -22,16 +23,14 @@
         }
         .search-box:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
         .search-icon { color: #5f6368; font-size: 18px; margin-right: 12px; }
-        input[type="text"] { flex-grow: 1; border: none; outline: none; font-size: 16px; font-family: 'Prompt'; color: #202124; text-overflow: ellipsis; }
+        input[type="text"] { flex-grow: 1; border: none; outline: none; font-size: 16px; font-family: 'Prompt'; color: #202124; }
         .action-icon { cursor: pointer; color: #5f6368; padding: 8px; font-size: 18px; }
         .divider { width: 1px; height: 24px; background: #dfe1e5; margin: 0 8px; }
 
-        /* SUGGESTIONS (เพิ่มความสูงให้โชว์เยอะๆ) */
+        /* SUGGESTIONS */
         #suggestions-list {
             list-style: none; margin: 5px 0 0 0; padding: 0; background: white; border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.2); 
-            max-height: 450px; /* เพิ่มความสูงเพื่อให้จุได้ 15 รายการ */
-            overflow-y: auto; display: none;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2); max-height: 400px; overflow-y: auto; display: none;
         }
         #suggestions-list li { padding: 12px 18px; border-bottom: 1px solid #f1f3f4; cursor: pointer; display: flex; align-items: center; gap: 12px; }
         #suggestions-list li:hover { background-color: #f8f9fa; }
@@ -47,7 +46,6 @@
         .layer-menu { padding: 5px 10px 10px 10px; opacity: 0; transition: opacity 0.2s 0.1s; }
         .layer-control:hover .layer-menu { opacity: 1; }
         .menu-header { font-size: 12px; color: #888; margin: 8px 0 4px 0; font-weight: 600; }
-        .menu-divider { height: 1px; background: #eee; margin: 5px 0; }
         .mode-option { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 8px; cursor: pointer; font-size: 14px; color: #333; transition: background 0.2s; border: 2px solid transparent; }
         .mode-option:hover { background: #f0f0f0; }
         .mode-option.active { border-color: #00B14F; background: #e6f4ea; color: #00B14F; font-weight: 600; }
@@ -71,12 +69,44 @@
         }
         .btn-action:hover { background: #f1f8ff; }
 
-        .custom-controls { position: absolute; bottom: 120px; right: 15px; display: flex; flex-direction: column; gap: 10px; z-index: 99; }
-        .ctrl-btn {
-            width: 40px; height: 40px; background: white; border-radius: 2px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.3); border: none; cursor: pointer; font-size: 18px; color: #666;
+        /* TELEMETRY & TOOLS */
+        .telemetry-box {
+            position: absolute; bottom: 130px; left: 15px; z-index: 90;
+            background: rgba(255, 255, 255, 0.9); border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 10px;
+            font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #555;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 5px 15px;
+            border-left: 3px solid #00B14F; pointer-events: none;
         }
-        .ctrl-btn:hover { color: #333; }
+        .tele-label { font-weight: 700; color: #888; }
+        
+        .tools-panel {
+            position: absolute; bottom: 120px; right: 15px; z-index: 99;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .tool-btn {
+            width: 40px; height: 40px; background: white; border-radius: 50%;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.3); border: none; cursor: pointer;
+            font-size: 16px; color: #555; display: flex; align-items: center; justify-content: center;
+            transition: 0.2s; position: relative;
+        }
+        .tool-btn:hover { background: #333; color: white; }
+        .tool-btn.active { background: #00B14F; color: white; }
+        .tool-btn::after {
+            content: attr(data-tooltip); position: absolute; right: 50px; 
+            background: rgba(0,0,0,0.7); color: white; padding: 4px 8px; border-radius: 4px;
+            font-size: 12px; font-family: 'Prompt'; white-space: nowrap; 
+            opacity: 0; pointer-events: none; transition: 0.2s;
+        }
+        .tool-btn:hover::after { opacity: 1; }
+
+        .measure-result {
+            position: absolute; top: 80px; left: 50%; transform: translateX(-50%);
+            background: #333; color: white; padding: 8px 16px; border-radius: 20px;
+            font-family: 'JetBrains Mono'; font-size: 14px; z-index: 100;
+            display: none; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+        }
+
         .maplibregl-ctrl-bottom-right { bottom: 30px !important; right: 15px !important; }
     </style>
 </head>
@@ -102,8 +132,8 @@
             <div class="mode-option" id="opt-satellite" onclick="setBaseMap('satellite')">
                 <i class="fas fa-globe-asia mode-img"></i> <span>ดาวเทียม</span>
             </div>
-            <div class="menu-divider"></div>
-            <div class="menu-header">รายละเอียด</div>
+            <div class="menu-divider" style="height:1px; background:#eee; margin:5px 0;"></div>
+            <div class="menu-header">Overlay</div>
             <div class="mode-option" id="opt-3d" onclick="toggle3DMode()">
                 <i class="fas fa-cube mode-img"></i> <span>ตึก 3 มิติ</span>
             </div>
@@ -111,6 +141,27 @@
     </div>
 
     <div id="map"></div>
+    
+    <div class="measure-result" id="measureBox">DISTANCE: <span id="distValue">0.00</span> KM</div>
+
+    <div class="telemetry-box">
+        <div><span class="tele-label">LAT:</span> <span id="hud-lat">00.0000</span></div>
+        <div><span class="tele-label">LNG:</span> <span id="hud-lng">000.0000</span></div>
+        <div><span class="tele-label">ZOOM:</span> <span id="hud-zoom">00.0</span></div>
+        <div><span class="tele-label">BEAR:</span> <span id="hud-bear">0°</span></div>
+    </div>
+
+    <div class="tools-panel">
+        <button class="tool-btn" id="btnMeasure" onclick="toggleMeasure()" data-tooltip="ไม้บรรทัดวัดระยะ">
+            <i class="fas fa-ruler-combined"></i>
+        </button>
+        <button class="tool-btn" id="btnOrbit" onclick="toggleOrbit()" data-tooltip="Orbital Scan">
+            <i class="fas fa-circle-notch"></i>
+        </button>
+        <button class="tool-btn" id="btnLocate" onclick="locateMe()" data-tooltip="ตำแหน่งของฉัน">
+            <i class="fas fa-crosshairs"></i>
+        </button>
+    </div>
 
     <div class="place-card" id="placeCard">
         <i class="fas fa-times close-card" onclick="closeCard()"></i>
@@ -122,23 +173,19 @@
         </div>
     </div>
 
-    <div class="custom-controls">
-        <button class="ctrl-btn" id="btnLocate" title="ตำแหน่งของฉัน"><i class="fas fa-crosshairs"></i></button>
-    </div>
-
     <script>
         // ================= CONFIG =================
         const awsRegion = "ap-southeast-1"; 
         const apiKey = "v1.public.eyJqdGkiOiJmNzNkNjM0Yi1kNGE2LTQ2NTctOTZkNC1iYjY0ZjNhYjVkZGIifZYCmZRszQzkmn5JHctd9yiaEF_f-_BAMJiZK8r6PX880rWDvDBp-gs1oVAUA4kQKemDeSwwJgDKY2LryfyoVkMCgyllPcRKlzEx1dfC5pZ8YJSnV660ROtv3lzP5Q0Bxe0MHGBgBsf08vOx7eSbd6Ex2geCxD5TkoC159XVbrS3lIKs1Xvar08r4oF496cMGJ_smMnhP1arg68cBKoO0lwpgF3VgyqPYCE31bQbgZC5xA8La8SPM_kgxD6jsMzWlZV_p5gycAXRxwxzNNsjIf2eybtM8vLHa-XjgVyKM-Iq2LAS0bUGNDYq9-glAHgA7kkkbvJSQmbcZaWi4Kd1-vw.MzRjYzZmZGUtZmY3NC00NDZiLWJiMTktNTc4YjUxYTFlOGZi";
         const placeIndexName = "GrabMaps_Place";
-        
         const mapNameStreet = "GrabMaps_Street"; 
         const mapNameSatellite = "Esri_Imagery"; 
 
         const styleStreet = `https://maps.geo.${awsRegion}.amazonaws.com/maps/v0/maps/${mapNameStreet}/style-descriptor?key=${apiKey}`;
         const styleSatellite = `https://maps.geo.${awsRegion}.amazonaws.com/maps/v0/maps/${mapNameSatellite}/style-descriptor?key=${apiKey}`;
 
-        let appState = { baseMap: 'street', is3D: false };
+        let appState = { baseMap: 'street', is3D: false, isMeasuring: false, isOrbiting: false };
+        let measurePoints = [];
 
         const map = new maplibregl.Map({
             container: 'map',
@@ -150,95 +197,172 @@
         map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
         const geolocate = new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true });
         map.addControl(geolocate);
-        document.getElementById('btnLocate').addEventListener('click', () => geolocate.trigger());
-
-        // ================= DYNAMIC PLACEHOLDER (New!) =================
-        // ฟังก์ชันนี้จะคอยอัปเดตชื่อจังหวัดในช่องค้นหา เมื่อเราเลื่อนแมพ
-        let debounceMove;
         
-        async function updateSearchPlaceholder() {
-            const center = map.getCenter();
-            const url = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/search/position?key=${apiKey}`;
-            
-            try {
-                // ยิงไปถามว่าตรงกลางแมพคือที่ไหน (Reverse Geocode)
-                const res = await fetch(url, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ Position: [center.lng, center.lat], MaxResults: 1, Language: "th" })
-                });
-                const data = await res.json();
-                
-                if (data.Results && data.Results.length > 0) {
-                    const place = data.Results[0].Place;
-                    
-                    // พยายามดึงชื่อจังหวัด (Region) หรือ อำเภอ (SubRegion)
-                    // ถ้าไม่มีก็เอาชื่อสถานที่นั่นแหละ
-                    let locationName = place.Label;
-                    
-                    // ปรับแต่งข้อความให้สั้นกระชับ
-                    // ตัวอย่าง: ถ้า Label ยาวๆ เราอาจจะอยากตัดให้เหลือแค่ จังหวัด
-                    // แต่ในที่นี้ GrabMaps มักส่ง Label ที่ละเอียด ให้โชว์ไปเลยก็เท่ดีครับ
-                    // หรือถ้าอยากได้แค่จังหวัด ต้องดู field: Region
-                    
-                    if (place.Region) {
-                        locationName = place.Region; // เช่น "กรุงเทพมหานคร"
-                    } else if (place.SubRegion) {
-                        locationName = place.SubRegion; // เช่น "เชียงใหม่" (บางทีส่งมาเป็น subregion)
-                    }
+        function locateMe() { geolocate.trigger(); }
 
-                    document.getElementById('searchInput').placeholder = `ค้นหาใน ${locationName}...`;
-                }
-            } catch (e) {
-                // ถ้า Error ให้กลับเป็นค่าเดิม
-                document.getElementById('searchInput').placeholder = "ค้นหาใน GrabMaps...";
-            }
-        }
-
-        // เมื่อหยุดเลื่อนแผนที่ ให้รอ 1 วินาทีแล้วค่อยเปลี่ยนชื่อจังหวัด (กันยิง API รัวเกิน)
-        map.on('moveend', () => {
-            clearTimeout(debounceMove);
-            debounceMove = setTimeout(updateSearchPlaceholder, 1000); 
-        });
-
-        // โหลดครั้งแรกก็ทำเลย
-        map.on('load', () => { 
+        // ================= MAP LOAD & STYLE HANDLER (หัวใจสำคัญของการแก้บั๊ก) =================
+        map.on('load', () => {
             updateUI(); 
             updateSearchPlaceholder();
+            // เรียกสร้าง Layer วัดระยะตั้งแต่ครั้งแรก
+            setupMeasureLayer();
         });
-        
+
+        // Event นี้ทำงานทุกครั้งที่เปลี่ยน Style (Street <-> Satellite)
         map.on('styledata', () => {
+            // 1. กู้คืน Layer วัดระยะ (Fix: ไม้บรรทัดหาย)
+            setupMeasureLayer();
+            
+            // 2. ถ้ามีข้อมูลวัดระยะค้างอยู่ ให้วาดใหม่ด้วย
+            if (measurePoints.length > 0) {
+                updateMeasureLayerData();
+            }
+
+            // 3. กู้คืนตึก 3D (ถ้าเปิดอยู่)
             if (appState.is3D && appState.baseMap === 'street') {
                 add3DBuildings(); 
             }
         });
 
-        // ================= CLICK HANDLER =================
+        // ================= MEASUREMENT TOOL (Fix) =================
+        function setupMeasureLayer() {
+            if (map.getSource('measure-source')) return; // ถ้ามีแล้วไม่ต้องสร้างซ้ำ
+
+            map.addSource('measure-source', { 'type': 'geojson', 'data': { 'type': 'FeatureCollection', 'features': [] } });
+            
+            map.addLayer({
+                'id': 'measure-lines', 'type': 'line', 'source': 'measure-source',
+                'layout': { 'line-cap': 'round', 'line-join': 'round' },
+                'paint': { 'line-color': '#00B14F', 'line-width': 3, 'line-dasharray': [2, 2] }
+            });
+            map.addLayer({
+                'id': 'measure-points', 'type': 'circle', 'source': 'measure-source',
+                'paint': { 'circle-radius': 5, 'circle-color': '#fff', 'circle-stroke-color': '#00B14F', 'circle-stroke-width': 2 }
+            });
+        }
+
+        function toggleMeasure() {
+            appState.isMeasuring = !appState.isMeasuring;
+            const btn = document.getElementById('btnMeasure');
+            const resultBox = document.getElementById('measureBox');
+
+            if (appState.isMeasuring) {
+                btn.classList.add('active');
+                resultBox.style.display = 'block';
+                resultBox.innerHTML = `CLICK MAP TO START`;
+                map.getCanvas().style.cursor = 'crosshair';
+                measurePoints = [];
+                updateMeasureLayerData();
+            } else {
+                btn.classList.remove('active');
+                resultBox.style.display = 'none';
+                map.getCanvas().style.cursor = '';
+                measurePoints = []; // เคลียร์ค่า
+                updateMeasureLayerData();
+            }
+        }
+
+        function updateMeasureLayerData() {
+            const source = map.getSource('measure-source');
+            if(!source) return;
+
+            const lineString = {
+                'type': 'Feature',
+                'geometry': { 'type': 'LineString', 'coordinates': measurePoints }
+            };
+            
+            // สร้างจุดตามพิกัด
+            const points = measurePoints.map(coord => ({
+                'type': 'Feature',
+                'geometry': { 'type': 'Point', 'coordinates': coord }
+            }));
+
+            const features = measurePoints.length > 0 ? [lineString, ...points] : [];
+            
+            source.setData({
+                'type': 'FeatureCollection',
+                'features': features
+            });
+        }
+
+        function calculateDistance(points) {
+            if (points.length < 2) return 0;
+            let totalDist = 0;
+            for(let i=0; i<points.length-1; i++) {
+                const from = new maplibregl.LngLat(points[i][0], points[i][1]);
+                const to = new maplibregl.LngLat(points[i+1][0], points[i+1][1]);
+                totalDist += from.distanceTo(to);
+            }
+            return totalDist;
+        }
+
+        // ================= TECH FEATURES: ORBIT & TELEMETRY =================
+        map.on('mousemove', (e) => {
+            document.getElementById('hud-lat').innerText = e.lngLat.lat.toFixed(4);
+            document.getElementById('hud-lng').innerText = e.lngLat.lng.toFixed(4);
+        });
+        map.on('move', () => {
+            document.getElementById('hud-zoom').innerText = map.getZoom().toFixed(1);
+            document.getElementById('hud-bear').innerText = map.getBearing().toFixed(0) + "°";
+        });
+
+        let animationFrame;
+        function toggleOrbit() {
+            appState.isOrbiting = !appState.isOrbiting;
+            const btn = document.getElementById('btnOrbit');
+            if (appState.isOrbiting) {
+                btn.classList.add('active');
+                map.easeTo({ pitch: 60, zoom: 17 });
+                function rotate() {
+                    map.setBearing(map.getBearing() + 0.2);
+                    if (appState.isOrbiting) animationFrame = requestAnimationFrame(rotate);
+                }
+                setTimeout(rotate, 1000);
+            } else {
+                btn.classList.remove('active');
+                cancelAnimationFrame(animationFrame);
+                map.easeTo({ pitch: 0 });
+            }
+        }
+
+        // ================= CLICK HANDLER (Unified) =================
         map.on('click', async (e) => {
             if (e.originalEvent.target.closest('.top-container') || e.originalEvent.target.closest('.place-card') || e.originalEvent.target.closest('.layer-control') || e.originalEvent.target.closest('.custom-controls')) return;
 
-            const coords = e.lngLat;
-            selectedCoords = [coords.lng, coords.lat];
-            suggestionsList.style.display = 'none';
+            const coords = [e.lngLat.lng, e.lngLat.lat];
+
+            // 1. LOGIC ไม้บรรทัด
+            if (appState.isMeasuring) {
+                measurePoints.push(coords);
+                updateMeasureLayerData();
+                const distMeters = calculateDistance(measurePoints);
+                const distKM = (distMeters / 1000).toFixed(2);
+                document.getElementById('measureBox').innerHTML = `DISTANCE: <b>${distKM} KM</b> (${Math.round(distMeters)} M)`;
+                return; // จบการทำงาน ไม่ search
+            }
+
+            // 2. LOGIC Search/Pin ปกติ
+            selectedCoords = coords;
+            document.getElementById('suggestions-list').style.display = 'none';
             closeCard();
             clearAllMarkers();
 
-            const marker = new maplibregl.Marker({ color: "#EA4335" }).setLngLat(coords).addTo(map);
+            const marker = new maplibregl.Marker({ color: "#EA4335" }).setLngLat(e.lngLat).addTo(map);
             currentMarkers.push(marker);
             
-            showCard("กำลังโหลด...", `พิกัด: ${coords.lat.toFixed(5)}, ${coords.lng.toFixed(5)}`);
+            showCard("กำลังโหลด...", `พิกัด: ${e.lngLat.lat.toFixed(5)}, ${e.lngLat.lng.toFixed(5)}`);
 
             const url = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/search/position?key=${apiKey}`;
             try {
                 const res = await fetch(url, {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ Position: [coords.lng, coords.lat], MaxResults: 1, Language: "th" })
+                    body: JSON.stringify({ Position: coords, MaxResults: 1, Language: "th" })
                 });
                 const data = await res.json();
-                
                 if (data.Results && data.Results.length > 0) {
                     const place = data.Results[0].Place;
                     showCard(place.Label, "ตำแหน่งที่เลือก");
-                    searchInput.value = place.Label;
+                    document.getElementById('searchInput').value = place.Label;
                     toggleClearButton();
                 } else {
                     showCard("หมุดที่เลือก", "ไม่มีข้อมูลสถานที่");
@@ -246,228 +370,100 @@
             } catch(e) { console.error(e); }
         });
 
-        // ================= UI STATE =================
+        // ================= UI & MAP LOGIC =================
+        let debounceMove;
+        async function updateSearchPlaceholder() {
+            const center = map.getCenter();
+            const url = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/search/position?key=${apiKey}`;
+            try {
+                const res = await fetch(url, {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ Position: [center.lng, center.lat], MaxResults: 1, Language: "th" })
+                });
+                const data = await res.json();
+                if (data.Results && data.Results.length > 0) {
+                    let name = data.Results[0].Place.Label;
+                    if(data.Results[0].Place.Region) name = data.Results[0].Place.Region;
+                    document.getElementById('searchInput').placeholder = `ค้นหาใน ${name}...`;
+                }
+            } catch (e) { document.getElementById('searchInput').placeholder = "ค้นหาใน NDF Maps..."; }
+        }
+        map.on('moveend', () => { clearTimeout(debounceMove); debounceMove = setTimeout(updateSearchPlaceholder, 1000); });
+
         function setBaseMap(mode) {
             if (appState.baseMap === mode) return;
             appState.baseMap = mode;
-            if (mode === 'satellite') {
-                appState.is3D = false;
-                map.setStyle(styleSatellite);
-            } else {
-                map.setStyle(styleStreet);
-            }
+            if (mode === 'satellite') { appState.is3D = false; map.setStyle(styleSatellite); } 
+            else { map.setStyle(styleStreet); }
             updateUI();
         }
-
         function toggle3DMode() {
             if (appState.baseMap === 'satellite') return;
             appState.is3D = !appState.is3D;
-            if (appState.is3D) {
-                map.easeTo({ pitch: 60, duration: 1000 });
-                add3DBuildings();
-            } else {
-                map.easeTo({ pitch: 0, duration: 1000 });
-                if (map.getLayer('3d-buildings-v1')) map.removeLayer('3d-buildings-v1');
-                if (map.getLayer('3d-buildings-v2')) map.removeLayer('3d-buildings-v2');
-            }
+            if (appState.is3D) { map.easeTo({ pitch: 60, duration: 1000 }); add3DBuildings(); } 
+            else { map.easeTo({ pitch: 0, duration: 1000 }); if (map.getLayer('3d-buildings-v1')) map.removeLayer('3d-buildings-v1'); if (map.getLayer('3d-buildings-v2')) map.removeLayer('3d-buildings-v2'); }
             updateUI();
         }
-
         function updateUI() {
-            const btnStreet = document.getElementById('opt-street');
-            const btnSat = document.getElementById('opt-satellite');
+            document.getElementById('opt-street').classList.toggle('active', appState.baseMap === 'street');
+            document.getElementById('opt-satellite').classList.toggle('active', appState.baseMap === 'satellite');
             const btn3D = document.getElementById('opt-3d');
-            const mainIcon = document.getElementById('mainLayerIcon');
-
-            btnStreet.classList.remove('active');
-            btnSat.classList.remove('active');
-            btn3D.classList.remove('active', 'disabled');
-
-            if (appState.baseMap === 'street') {
-                btnStreet.classList.add('active');
-                mainIcon.innerHTML = appState.is3D ? '<i class="fas fa-cube" style="color:#00B14F;"></i>' : '<i class="fas fa-layer-group"></i>';
-            } else {
-                btnSat.classList.add('active');
-                btn3D.classList.add('disabled');
-                mainIcon.innerHTML = '<i class="fas fa-globe-asia" style="color:#00B14F;"></i>';
-            }
-            if (appState.is3D) btn3D.classList.add('active');
+            btn3D.classList.toggle('active', appState.is3D);
+            btn3D.classList.toggle('disabled', appState.baseMap === 'satellite');
+            document.getElementById('mainLayerIcon').innerHTML = appState.baseMap === 'street' ? (appState.is3D ? '<i class="fas fa-cube" style="color:#00B14F"></i>' : '<i class="fas fa-layer-group"></i>') : '<i class="fas fa-globe-asia" style="color:#00B14F"></i>';
         }
-
         function add3DBuildings() {
-            if (map.getLayer('3d-buildings-v1') || map.getLayer('3d-buildings-v2')) return;
+            if (map.getLayer('3d-buildings-v1')) return;
             let sourceId = 'grabmaptiles'; 
             const style = map.getStyle();
-            for (const layer of style.layers) {
-                if (layer.source && layer.source !== 'composite') { sourceId = layer.source; break; }
-            }
-            if (!map.getLayer('3d-buildings-v1')) {
-                map.addLayer({
-                    'id': '3d-buildings-v1', 'source': sourceId, 'source-layer': 'Building',
-                    'type': 'fill-extrusion', 'minzoom': 13,
-                    'paint': { 'fill-extrusion-color': '#ddd', 'fill-extrusion-height': 20, 'fill-extrusion-opacity': 0.8 }
-                });
-            }
-            if (!map.getLayer('3d-buildings-v2')) {
-                map.addLayer({
-                    'id': '3d-buildings-v2', 'source': sourceId, 'source-layer': 'building',
-                    'type': 'fill-extrusion', 'minzoom': 13,
-                    'paint': { 'fill-extrusion-color': '#ddd', 'fill-extrusion-height': 20, 'fill-extrusion-opacity': 0.8 }
-                });
-            }
+            for (const layer of style.layers) { if (layer.source && layer.source !== 'composite') { sourceId = layer.source; break; } }
+            if (!map.getLayer('3d-buildings-v1')) map.addLayer({ 'id': '3d-buildings-v1', 'source': sourceId, 'source-layer': 'Building', 'type': 'fill-extrusion', 'minzoom': 13, 'paint': { 'fill-extrusion-color': '#ddd', 'fill-extrusion-height': 20, 'fill-extrusion-opacity': 0.8 } });
+            if (!map.getLayer('3d-buildings-v2')) map.addLayer({ 'id': '3d-buildings-v2', 'source': sourceId, 'source-layer': 'building', 'type': 'fill-extrusion', 'minzoom': 13, 'paint': { 'fill-extrusion-color': '#ddd', 'fill-extrusion-height': 20, 'fill-extrusion-opacity': 0.8 } });
         }
 
-        // ================= SEARCH SYSTEM =================
+        // ================= SEARCH & HELPERS =================
         const searchInput = document.getElementById('searchInput');
         const suggestionsList = document.getElementById('suggestions-list');
         const clearBtn = document.getElementById('clearBtn');
-        let debounceTimer;
         let currentMarkers = [];
-
+        
         function toggleClearButton() { clearBtn.style.display = searchInput.value.length > 0 ? 'block' : 'none'; }
-        function clearAllMarkers() {
-            currentMarkers.forEach(m => m.remove());
-            currentMarkers = [];
-        }
-
-        searchInput.addEventListener('input', function() {
-            toggleClearButton();
-            clearTimeout(debounceTimer);
-            if (this.value.length < 2) { suggestionsList.style.display = 'none'; return; }
-            debounceTimer = setTimeout(() => fetchSuggestions(this.value), 300);
-        });
-
-        searchInput.addEventListener('keypress', async function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault(); 
-                suggestionsList.style.display = 'none';
-                if(this.value) await searchAndGo(this.value);
-            }
-        });
-
-        clearBtn.addEventListener('click', () => {
-            searchInput.value = ''; suggestionsList.style.display = 'none'; toggleClearButton();
-            closeCard(); clearAllMarkers();
-        });
+        function clearAllMarkers() { currentMarkers.forEach(m => m.remove()); currentMarkers = []; }
+        searchInput.addEventListener('input', function() { toggleClearButton(); clearTimeout(debounceTimer); if (this.value.length < 2) { suggestionsList.style.display = 'none'; return; } debounceTimer = setTimeout(() => fetchSuggestions(this.value), 300); });
+        searchInput.addEventListener('keypress', async function(e) { if (e.key === 'Enter') { e.preventDefault(); suggestionsList.style.display = 'none'; if(this.value) await searchAndGo(this.value); } });
+        clearBtn.addEventListener('click', () => { searchInput.value = ''; suggestionsList.style.display = 'none'; toggleClearButton(); closeCard(); clearAllMarkers(); });
 
         async function fetchSuggestions(text) {
             const url = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/search/suggestions?key=${apiKey}`;
-            try {
-                const res = await fetch(url, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    // ** เพิ่ม MaxResults เป็น 15 ตามคำขอ **
-                    body: JSON.stringify({ Text: text, MaxResults: 15, Language: "th", BiasPosition: [map.getCenter().lng, map.getCenter().lat] })
-                });
-                const data = await res.json();
-                renderSuggestions(data.Results);
-            } catch(e) { console.error(e); }
+            try { const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ Text: text, MaxResults: 15, Language: "th", BiasPosition: [map.getCenter().lng, map.getCenter().lat] }) }); const data = await res.json(); renderSuggestions(data.Results); } catch(e) {}
         }
-
         function renderSuggestions(results) {
-            suggestionsList.innerHTML = '';
-            if (!results || results.length === 0) { suggestionsList.style.display = 'none'; return; }
-            results.forEach(item => {
-                const li = document.createElement('li');
-                li.innerHTML = `<i class="fas fa-map-marker-alt" style="color:#777;"></i> <span>${item.Text}</span>`;
-                li.onclick = () => selectPlace(item.PlaceId, item.Text);
-                suggestionsList.appendChild(li);
-            });
+            suggestionsList.innerHTML = ''; if (!results || results.length === 0) { suggestionsList.style.display = 'none'; return; }
+            results.forEach(item => { const li = document.createElement('li'); li.innerHTML = `<i class="fas fa-map-marker-alt" style="color:#777;"></i> <span>${item.Text}</span>`; li.onclick = () => selectPlace(item.PlaceId, item.Text); suggestionsList.appendChild(li); });
             suggestionsList.style.display = 'block';
         }
-
-        async function selectPlace(placeId, text) {
-            suggestionsList.style.display = 'none';
-            const url = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/places/${placeId}?key=${apiKey}`;
-            try {
-                const res = await fetch(`${url}&language=th`);
-                const data = await res.json();
-                renderSinglePlace(data.Place);
-            } catch(e) { console.error(e); }
-        }
-
+        async function selectPlace(placeId, text) { suggestionsList.style.display = 'none'; const url = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/places/${placeId}?key=${apiKey}`; try { const res = await fetch(`${url}&language=th`); const data = await res.json(); renderSinglePlace(data.Place); } catch(e) {} }
         async function searchAndGo(text) {
             const url = `https://places.geo.${awsRegion}.amazonaws.com/places/v0/indexes/${placeIndexName}/search/text?key=${apiKey}`;
-            try {
-                const res = await fetch(url, {
-                    method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    // ** เพิ่ม MaxResults เป็น 15 **
-                    body: JSON.stringify({ Text: text, MaxResults: 15, Language: "th", BiasPosition: [map.getCenter().lng, map.getCenter().lat] })
-                });
-                const data = await res.json();
-                
-                if (data.Results && data.Results.length > 0) {
-                    if (data.Results.length === 1) {
-                        renderSinglePlace(data.Results[0].Place);
-                    } else {
-                        renderMultiplePlaces(data.Results);
-                    }
-                } else {
-                    alert("ไม่พบสถานที่");
-                }
-            } catch(e) { console.error(e); }
+            try { const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ Text: text, MaxResults: 15, Language: "th", BiasPosition: [map.getCenter().lng, map.getCenter().lat] }) }); const data = await res.json(); if (data.Results && data.Results.length > 0) { if (data.Results.length === 1) renderSinglePlace(data.Results[0].Place); else renderMultiplePlaces(data.Results); } else alert("ไม่พบสถานที่"); } catch(e) {}
         }
-
         function renderSinglePlace(place) {
-            const coords = place.Geometry.Point;
-            searchInput.value = place.Label;
-            toggleClearButton();
-            clearAllMarkers();
-
-            if (place.Geometry.BoundingBox) {
-                 map.fitBounds([[place.Geometry.BoundingBox[0], place.Geometry.BoundingBox[1]], [place.Geometry.BoundingBox[2], place.Geometry.BoundingBox[3]]], { padding: 100 });
-                 showCard(place.Label, "เขต/พื้นที่");
-            } else {
-                map.flyTo({ center: coords, zoom: 17 });
-                const marker = new maplibregl.Marker({ color: "#EA4335" }).setLngLat(coords).addTo(map);
-                currentMarkers.push(marker);
-                showCard(place.Label, "สถานที่");
-            }
+            const coords = place.Geometry.Point; searchInput.value = place.Label; toggleClearButton(); clearAllMarkers();
+            if (place.Geometry.BoundingBox) { map.fitBounds([[place.Geometry.BoundingBox[0], place.Geometry.BoundingBox[1]], [place.Geometry.BoundingBox[2], place.Geometry.BoundingBox[3]]], { padding: 100 }); showCard(place.Label, "เขต/พื้นที่"); }
+            else { map.flyTo({ center: coords, zoom: 17 }); const marker = new maplibregl.Marker({ color: "#EA4335" }).setLngLat(coords).addTo(map); currentMarkers.push(marker); showCard(place.Label, "สถานที่"); }
             selectedCoords = [coords[0], coords[1]];
         }
-
         function renderMultiplePlaces(results) {
-            clearAllMarkers();
-            toggleClearButton();
-            closeCard();
-
-            const bounds = new maplibregl.LngLatBounds();
-            results.forEach(item => {
-                const place = item.Place;
-                const coords = place.Geometry.Point;
-                const marker = new maplibregl.Marker({ color: "#EA4335" })
-                    .setLngLat(coords)
-                    .setPopup(new maplibregl.Popup({ offset: 25 }).setHTML(`<b>${place.Label}</b>`))
-                    .addTo(map);
-                
-                marker.getElement().addEventListener('click', () => {
-                    showCard(place.Label, "ผลการค้นหา");
-                    selectedCoords = [coords[0], coords[1]];
-                });
-                currentMarkers.push(marker);
-                bounds.extend(coords);
-            });
+            clearAllMarkers(); toggleClearButton(); closeCard(); const bounds = new maplibregl.LngLatBounds();
+            results.forEach(item => { const coords = item.Place.Geometry.Point; const marker = new maplibregl.Marker({ color: "#EA4335" }).setLngLat(coords).setPopup(new maplibregl.Popup({ offset: 25 }).setHTML(`<b>${item.Place.Label}</b>`)).addTo(map); marker.getElement().addEventListener('click', () => { showCard(item.Place.Label, "ผลการค้นหา"); selectedCoords = [coords[0], coords[1]]; }); currentMarkers.push(marker); bounds.extend(coords); });
             map.fitBounds(bounds, { padding: 100, maxZoom: 16 });
         }
-
-        // ================= HELPERS =================
-        let selectedCoords = null;
-
-        function showCard(title, subtitle) {
-            document.getElementById('cardTitle').innerText = title;
-            document.getElementById('cardSubtitle').innerText = subtitle;
-            document.getElementById('placeCard').style.display = 'block';
-        }
-        function closeCard() { document.getElementById('placeCard').style.display = 'none'; }
         
-        function getDirections() { 
-            if(selectedCoords) window.open(`https://www.google.com/maps/dir/?api=1&destination=${selectedCoords[1]},${selectedCoords[0]}`, '_blank'); 
-        }
-        function copyCoords() { 
-            if(selectedCoords) { 
-                navigator.clipboard.writeText(`${selectedCoords[1]}, ${selectedCoords[0]}`); 
-                alert("คัดลอกพิกัดแล้ว"); 
-            } 
-        }
+        let selectedCoords = null;
+        function showCard(title, subtitle) { document.getElementById('cardTitle').innerText = title; document.getElementById('cardSubtitle').innerText = subtitle; document.getElementById('placeCard').style.display = 'block'; }
+        function closeCard() { document.getElementById('placeCard').style.display = 'none'; }
+        function getDirections() { if(selectedCoords) window.open(`https://www.google.com/maps/dir/?api=1&destination=${selectedCoords[1]},${selectedCoords[0]}`, '_blank'); }
+        function copyCoords() { if(selectedCoords) { navigator.clipboard.writeText(`${selectedCoords[1]}, ${selectedCoords[0]}`); alert("คัดลอกพิกัดแล้ว"); } }
     </script>
 </body>
 </html>
