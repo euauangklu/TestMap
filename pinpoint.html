@@ -3,7 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pinpoint Map (Proxy Fix)</title>
+    
+    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
+
+    <title>Pinpoint Map (Final Fix)</title>
     
     <link href="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
@@ -104,23 +107,18 @@
 
     <script>
         // ============================================================
-        // 🔴 SETTINGS (แก้ CORS ด้วย Proxy)
+        // 🔴 SETTINGS 
         // ============================================================
         
-        // 1. ใส่ API Key ของคุณที่นี่ (อันเดิมจากรูปภาพ)
         const PINPOINT_API_KEY = 'e7b9f96cf7ca04db6adbbb46bfa6d453a89dcdc5bc8dc55d20f6b86f1f39b7d46a46e455500bb80b'; 
 
-        // 2. URL ต้นฉบับ
         const ORIGINAL_URL = `https://pin-point.co/maps/v1/styles/osm_bright.json?key=${PINPOINT_API_KEY}`;
-        
-        // 3. ✨ PROXY URL ✨ (พระเอกของเรา)
-        // เราใช้บริการของ allorigins.win เพื่อเป็นตัวกลางไปดึงข้อมูลมาให้
-        // ทำให้ Browser คิดว่าเราคุยกับ allorigins ไม่ใช่ Pinpoint ตรงๆ จึงไม่โดนบล็อก
         const PROXY_URL = `https://api.allorigins.win/raw?url=${encodeURIComponent(ORIGINAL_URL)}`;
 
+        // ใช้ Proxy URL เพื่อแก้ปัญหา CORS และใช้ Meta Tag ด้านบนแก้ปัญหา CSP
         const map = new maplibregl.Map({
             container: 'map',
-            style: PROXY_URL, // ✅ ใช้ลิงก์ Proxy
+            style: PROXY_URL,
             center: [100.5018, 13.7563], 
             zoom: 13,
             pitch: 0,
@@ -149,8 +147,8 @@
             searchInput.value = ''; suggestionsList.style.display = 'none'; clearBtn.style.display = 'none';
         });
 
-        // Search ก็ต้องใช้ Proxy ด้วย (กันเหนียว)
         async function fetchPinpointSuggestions(text) {
+            // ใช้ Proxy กับ Search API ด้วย
             const searchUrl = `https://api.pin-point.co/api/v1/search/autocomplete?key=${PINPOINT_API_KEY}&keyword=${encodeURIComponent(text)}`;
             const proxySearch = `https://api.allorigins.win/raw?url=${encodeURIComponent(searchUrl)}`;
 
