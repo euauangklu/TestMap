@@ -3,132 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    
-    <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
-    
-    <title>Pinpoint Map (Updated Key)</title>
+    <title>Pinpoint Map Diagnostic</title>
     
     <link href="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
-
+    
     <style>
-        body { margin: 0; padding: 0; font-family: 'Prompt', sans-serif; overflow: hidden; background: #f2f2f2; }
-        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 0; }
+        body { margin: 0; padding: 0; font-family: monospace; background: #f0f0f0; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 1; opacity: 0; transition: opacity 0.5s; }
         
-        .back-btn { position: absolute; top: 20px; left: 20px; z-index: 200; background: white; border: 1px solid #ccc; padding: 8px 15px; border-radius: 20px; cursor: pointer; text-decoration: none; color: #333; font-size: 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.2); display: flex; align-items: center; gap: 5px; }
-        .back-btn:hover { background: #eee; }
-        .top-container { position: absolute; top: 70px; left: 20px; z-index: 100; width: 380px; max-width: 90%; }
-        .search-box { background: white; border-radius: 24px; box-shadow: 0 2px 6px rgba(0,0,0,0.2); padding: 2px 15px; display: flex; align-items: center; height: 48px; }
-        input[type="text"] { flex-grow: 1; border: none; outline: none; font-size: 16px; font-family: 'Prompt'; color: #202124; }
-        #suggestions-list { list-style: none; margin: 5px 0 0 0; padding: 0; background: white; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.2); max-height: 400px; overflow-y: auto; display: none; }
-        #suggestions-list li { padding: 12px 18px; border-bottom: 1px solid #f1f3f4; cursor: pointer; display: flex; align-items: center; gap: 12px; }
-        #suggestions-list li:hover { background-color: #f8f9fa; }
-        .telemetry-box { position: absolute; bottom: 40px; left: 20px; z-index: 90; background: rgba(255, 255, 255, 0.9); border-radius: 8px; padding: 10px; font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #555; display: grid; grid-template-columns: 1fr 1fr; gap: 5px 15px; border-left: 3px solid #1967d2; pointer-events: none; }
-        .place-card { position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%); width: 360px; max-width: 90%; background: white; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.2); padding: 20px; z-index: 101; display: none; }
-        .maplibregl-ctrl-bottom-right { display: none; }
+        /* กล่องรายงานผล (จะแสดงเมื่อมีปัญหา) */
+        #status-box {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 80%; max-width: 600px;
+            background: white; padding: 20px; border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            z-index: 100; text-align: center;
+        }
+        .loading { color: #666; font-size: 18px; }
+        .error { color: #d32f2f; border: 2px solid #d32f2f; background: #ffebee; padding: 15px; }
+        .success { color: #2e7d32; font-weight: bold; }
+        .btn { margin-top: 15px; padding: 10px 20px; background: #333; color: white; border: none; cursor: pointer; }
     </style>
 </head>
 <body>
 
-    <a href="index.html" class="back-btn"><i class="fas fa-arrow-left"></i> กลับหน้าหลัก</a>
-
-    <div class="top-container">
-        <div class="search-box">
-            <i class="fas fa-search" style="color:#5f6368; margin-right:12px;"></i>
-            <input type="text" id="searchInput" placeholder="ค้นหาด้วย Pinpoint..." autocomplete="off">    
-        </div>
-        <ul id="suggestions-list"></ul>
+    <div id="status-box">
+        <h2>📡 กำลังตรวจสอบการเชื่อมต่อ...</h2>
+        <p class="loading" id="msg">กำลังทดสอบดึงข้อมูลจาก Pinpoint Server<br>(ขั้นตอน 1/2)</p>
+        <div id="debug-info" style="font-size:12px; color:#999; margin-top:10px; text-align:left; white-space:pre-wrap; background:#eee; padding:5px; display:none;"></div>
     </div>
 
     <div id="map"></div>
 
-    <div class="telemetry-box">
-        <div>LAT: <span id="hud-lat">0.00</span></div>
-        <div>LNG: <span id="hud-lng">0.00</span></div>
-        <div>ZOOM: <span id="hud-zoom">0.0</span></div>
-        <div>KEY: <span style="color:green">a492...</span></div>
-    </div>
-
-    <div class="place-card" id="placeCard">
-        <h2 style="margin:0 0 5px 0;" id="cardTitle">สถานที่</h2>
-        <p style="color:#777; font-size:14px;" id="cardSubtitle">รายละเอียด</p>
-        <button onclick="document.getElementById('placeCard').style.display='none'" style="margin-top:10px; padding:5px 15px; border-radius:15px; border:1px solid #ccc; background:white; cursor:pointer;">ปิด</button>
-    </div>
-
     <script>
         // ============================================================
-        // 🔴 API KEY ล่าสุด (a492...)
+        // 🔧 การตั้งค่า
         // ============================================================
+        const API_KEY = 'a4924394299efc07cb11d8f1449f257b90ea000222ff06e35d231e42721567676c8e98dbf1bf2561';
         
-        const PINPOINT_API_KEY = 'a4924394299efc07cb11d8f1449f257b90ea000222ff06e35d231e42721567676c8e98dbf1bf2561'; 
+        // เพิ่มเวลาปัจจุบันลงไปใน URL เพื่อป้องกัน Browser จำค่าเดิม (Cache Busting)
+        const TIMESTAMP = new Date().getTime();
+        const STYLE_URL = `https://pin-point.co/maps/v1/styles/osm_bright.json?key=${API_KEY}&t=${TIMESTAMP}`;
 
-        // URL แผนที่ (Base Path: https://pin-point.co)
-        const MAP_STYLE_URL = `https://pin-point.co/maps/v1/styles/osm_bright.json?key=${PINPOINT_API_KEY}`;
+        const statusBox = document.getElementById('status-box');
+        const msg = document.getElementById('msg');
+        const debugInfo = document.getElementById('debug-info');
+        const mapDiv = document.getElementById('map');
 
-        // ============================================================
+        // ฟังก์ชันแสดง Error
+        function showError(title, detail, technical) {
+            statusBox.innerHTML = `
+                <h2 style="color:#d32f2f">❌ ${title}</h2>
+                <p>${detail}</p>
+                <div style="text-align:left; background:#eee; padding:10px; font-size:12px; margin-top:10px; overflow:auto;">
+                    <strong>Technical Details:</strong><br>${technical}
+                </div>
+                <button class="btn" onclick="location.reload()">ลองใหม่อีกครั้ง</button>
+            `;
+        }
 
-        const map = new maplibregl.Map({
-            container: 'map',
-            style: MAP_STYLE_URL,
-            center: [100.5018, 13.7563], 
-            zoom: 13,
-            attributionControl: true
-        });
+        // 🚀 ขั้นตอนที่ 1: ยิงทดสอบ (Test Fetch)
+        // เราจะลองดึงไฟล์ Style มาดูก่อนว่าดึงได้ไหม ถ้าดึงไม่ได้แสดงว่า Key/Referer ผิดแน่นอน
+        async function runDiagnostic() {
+            try {
+                debugInfo.style.display = 'block';
+                debugInfo.innerText += `> Connecting to: ${STYLE_URL}\n`;
 
-        // Event ดักจับ Error เพื่อดูว่า Key ผ่านไหม
-        map.on('error', (e) => { 
-            console.error('Map Error:', e);
-            if(e.error && (e.error.status === 403 || e.error.status === 401)) {
-                alert("Key นี้ใช้งานไม่ได้! กรุณาเช็ค Referer ใน Pinpoint Dashboard ว่าตรงกับ URL เว็บหรือไม่");
-            }
-        });
+                const response = await fetch(STYLE_URL);
+                
+                debugInfo.innerText += `> Status: ${response.status} ${response.statusText}\n`;
 
-        map.addControl(new maplibregl.NavigationControl(), 'bottom-right');
-
-        // --- Search Function ---
-        const searchInput = document.getElementById('searchInput');
-        const suggestionsList = document.getElementById('suggestions-list');
-
-        searchInput.addEventListener('input', function() {
-            if (this.value.length < 3) { suggestionsList.style.display = 'none'; return; }
-            
-            // ใช้ Key ใหม่ค้นหา
-            const searchUrl = `https://api.pin-point.co/api/v1/search/autocomplete?key=${PINPOINT_API_KEY}&keyword=${encodeURIComponent(this.value)}`;
-            
-            fetch(searchUrl)
-                .then(res => res.json())
-                .then(data => {
-                    if (data && data.data) {
-                        suggestionsList.innerHTML = '';
-                        data.data.forEach(item => {
-                            const li = document.createElement('li');
-                            li.innerHTML = `📍 ${item.name || item.address}`;
-                            li.onclick = () => {
-                                map.flyTo({ center: [item.lon, item.lat], zoom: 17 });
-                                new maplibregl.Marker().setLngLat([item.lon, item.lat]).addTo(map);
-                                suggestionsList.style.display = 'none';
-                                document.getElementById('placeCard').style.display = 'block';
-                                document.getElementById('cardTitle').innerText = item.name;
-                                document.getElementById('cardSubtitle').innerText = `${item.lat}, ${item.lon}`;
-                            };
-                            suggestionsList.appendChild(li);
-                        });
-                        suggestionsList.style.display = 'block';
+                if (!response.ok) {
+                    // ถ้า Server ตอบกลับมาว่า Error (เช่น 403 Forbidden)
+                    if (response.status === 403) {
+                        showError("ถูกปฏิเสธการเข้าถึง (403)", "Server ของ Pinpoint บล็อกการเชื่อมต่อครับ", 
+                            "สาเหตุที่เป็นไปได้:\n1. Referer ใน Dashboard ไม่ตรงกับเว็บนี้\n2. Key ผิด\n\nURL ปัจจุบันของคุณคือ: " + window.location.href);
+                    } else if (response.status === 404) {
+                        showError("หาไฟล์ไม่เจอ (404)", "URL ของแผนที่อาจจะผิด หรือทาง Pinpoint เปลี่ยน URL", "Checked URL: " + STYLE_URL);
+                    } else {
+                        showError("เกิดข้อผิดพลาด", "Server ตอบกลับมาด้วยสถานะที่ไม่ปกติ", `Status: ${response.status}`);
                     }
-                })
-                .catch(e => console.error("Search Error:", e));
-        });
+                    return;
+                }
 
-        // HUD Updates
-        map.on('mousemove', (e) => {
-            document.getElementById('hud-lat').innerText = e.lngLat.lat.toFixed(4);
-            document.getElementById('hud-lng').innerText = e.lngLat.lng.toFixed(4);
-        });
-        map.on('move', () => {
-            document.getElementById('hud-zoom').innerText = map.getZoom().toFixed(1);
-        });
+                // 🚀 ขั้นตอนที่ 2: ถ้าผ่าน ให้โหลดแผนที่จริง
+                msg.innerText = "✅ การเชื่อมต่อสำเร็จ! กำลังวาดแผนที่...";
+                msg.className = "success";
+                
+                initMap();
+
+            } catch (err) {
+                // ถ้าเชื่อมต่อไม่ได้เลย (เช่น เน็ตหลุด หรือ CORS บล็อกแบบ Hard Fail)
+                showError("เชื่อมต่อไม่ได้ (Network Error)", "Browser บล็อกการเชื่อมต่อ หรือ URL ผิดพลาด", err.message);
+            }
+        }
+
+        function initMap() {
+            try {
+                const map = new maplibregl.Map({
+                    container: 'map',
+                    style: STYLE_URL,
+                    center: [100.5018, 13.7563],
+                    zoom: 12
+                });
+
+                map.on('load', () => {
+                    // ซ่อนกล่องสถานะเมื่อแผนที่มาแล้ว
+                    statusBox.style.display = 'none';
+                    mapDiv.style.opacity = 1;
+                });
+
+                map.on('error', (e) => {
+                    console.error(e);
+                    // ถ้า maplibre ฟ้อง error
+                    debugInfo.innerText += `> Map Error: ${e.error.message}\n`;
+                });
+
+            } catch (e) {
+                showError("โหลดแผนที่ล้มเหลว", "Library ทำงานผิดพลาด", e.message);
+            }
+        }
+
+        // เริ่มทำงาน
+        runDiagnostic();
 
     </script>
 </body>
