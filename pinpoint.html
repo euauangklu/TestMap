@@ -125,16 +125,16 @@
 
     <script>
         // ============================================================
-        // 🔴🔴 ตั้งค่า PINPOINT ตรงนี้ (สำคัญมาก) 🔴🔴
+        // 🔴🔴 ตั้งค่า PINPOINT 🔴🔴
         // ============================================================
-        // ไปที่ https://pin-point.co/portal/account/dashboard เพื่อหาค่าเหล่านี้
         
         const PINPOINT_API_KEY = 'b17531c1a81a64ba7e13f3157c10ad30c0489b98cb81dadeb87b19f3dc6626fe56d02565b6ed4eb2'; 
         
-        // ลิงก์ Style ของแผนที่ (Vector Tile Style URL)
-        // ถ้าหาไม่เจอ ลองใช้ Format นี้: https://api.pin-point.co/maps/v1/styles/osm_bright.json?key=...
-        // หรือถ้า Pinpoint ให้มาเป็น XYZ Tile URL ให้แก้โค้ดด้านล่าง
-        const MAP_STYLE_URL = `https://pin-point.co/maps/v1/styles/osm_bright.json?key=${PINPOINT_API_KEY}`;
+        // ลิงก์เดิมของคุณ
+        const ORIGINAL_URL = `https://pin-point.co/maps/v1/styles/osm_bright.json?key=${PINPOINT_API_KEY}`;
+
+        // ✅ แก้โค้ด: ใช้ Proxy เพื่อทะลุบล็อก CORS (ใช้เฉพาะตอนทดสอบ/TestMap)
+        const MAP_STYLE_URL = `https://api.allorigins.win/raw?url=${encodeURIComponent(ORIGINAL_URL)}`;
         
         // ============================================================
 
