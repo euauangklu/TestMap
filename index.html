@@ -108,6 +108,39 @@
         }
 
         .maplibregl-ctrl-bottom-right { bottom: 30px !important; right: 15px !important; }
+
+        /* ปุ่มเปลี่ยนหน้า (มุมซ้ายล่าง) */
+        .nav-page-btn {
+            position: absolute; 
+            bottom: 30px; 
+            left: 15px; 
+            z-index: 95; /* อยู่ต่ำกว่า Place Card นิดหน่อย */
+            
+            background: white; 
+            color: #5f6368;
+            padding: 10px 20px; 
+            border-radius: 24px; /* ทรงแคปซูล */
+            border: 1px solid #dadce0;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+            
+            text-decoration: none; /* ลบเส้นใต้ลิงก์ */
+            font-family: 'Prompt', sans-serif;
+            font-weight: 500;
+            font-size: 14px;
+            display: flex; 
+            align-items: center; 
+            gap: 10px;
+            transition: all 0.2s ease;
+        }
+
+        .nav-page-btn:hover {
+            background: #f8f9fa;
+            color: #1a73e8; /* สีน้ำเงิน Google */
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+            transform: translateY(-2px);
+        }
+
+        .nav-icon { font-size: 16px; }
     </style>
 </head>
 <body>
@@ -141,6 +174,11 @@
     </div>
 
     <div id="map"></div>
+
+    <a href="pinpoint.html" class="nav-page-btn" title="ไปหน้าทดสอบ Pinpoint">
+        <i class="fas fa-chart-network nav-icon"></i> 
+        <span>PINPOINT API</span>
+    </a>
     
     <div class="measure-result" id="measureBox">DISTANCE: <span id="distValue">0.00</span> KM</div>
 

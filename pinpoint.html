@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pinpoint Map (Thailand)</title>
+    
+    <link href="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.css" rel="stylesheet" />
+    <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* === ใช้ Style เดิมทั้งหมด เพื่อความต่อเนื่อง === */
+        body { margin: 0; padding: 0; font-family: 'Prompt', sans-serif; overflow: hidden; background: #f2f2f2; }
+        #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 0; }
+        
+        /* ปุ่มย้อนกลับ */
+        .back-btn {
+            position: absolute; top: 20px; left: 20px; z-index: 200;
+            background: white; border: 1px solid #ccc; padding: 8px 15px;
+            border-radius: 20px; cursor: pointer; text-decoration: none; color: #333;
+            font-size: 14px; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            display: flex; align-items: center; gap: 5px;
+        }
+        .back-btn:hover { background: #eee; }
+
+        /* SEARCH BAR (ปรับตำแหน่งหลบปุ่ม Back) */
+        .top-container { position: absolute; top: 70px; left: 20px; z-index: 100; width: 380px; max-width: 90%; }
+        .search-box {
+            background: white; border-radius: 24px; box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+            padding: 2px 15px; display: flex; align-items: center; height: 48px; transition: all 0.3s;
+        }
+        .search-box:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+        .search-icon { color: #5f6368; font-size: 18px; margin-right: 12px; }
+        input[type="text"] { flex-grow: 1; border: none; outline: none; font-size: 16px; font-family: 'Prompt'; color: #202124; }
+        .action-icon { cursor: pointer; color: #5f6368; padding: 8px; font-size: 18px; }
+        .divider { width: 1px; height: 24px; background: #dfe1e5; margin: 0 8px; }
+
+        #suggestions-list {
+            list-style: none; margin: 5px 0 0 0; padding: 0; background: white; border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2); max-height: 400px; overflow-y: auto; display: none;
+        }
+        #suggestions-list li { padding: 12px 18px; border-bottom: 1px solid #f1f3f4; cursor: pointer; display: flex; align-items: center; gap: 12px; }
+        #suggestions-list li:hover { background-color: #f8f9fa; }
+
+        /* TOOLS & UI (เหมือนเดิม) */
+        .telemetry-box {
+            position: absolute; bottom: 40px; left: 20px; z-index: 90;
+            background: rgba(255, 255, 255, 0.9); border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 10px;
+            font-family: 'JetBrains Mono', monospace; font-size: 11px; color: #555;
+            display: grid; grid-template-columns: 1fr 1fr; gap: 5px 15px;
+            border-left: 3px solid #1967d2; pointer-events: none;
+        }
+        .tele-label { font-weight: 700; color: #888; }
+
+        .tools-panel {
+            position: absolute; bottom: 100px; right: 20px; z-index: 99;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .tool-btn {
+            width: 45px; height: 45px; background: white; border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3); border: none; cursor: pointer;
+            font-size: 18px; color: #555; display: flex; align-items: center; justify-content: center;
+            transition: 0.2s; position: relative;
+        }
+        .tool-btn:hover { background: #333; color: white; }
+        .tool-btn.active { background: #1967d2; color: white; }
+        
+        .place-card {
+            position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%); width: 360px; max-width: 90%;
+            background: white; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+            padding: 20px; z-index: 101; display: none; animation: slideUp 0.3s ease-out;
+        }
+        @keyframes slideUp { from { transform: translate(-50%, 20px); opacity: 0; } to { transform: translate(-50%, 0); opacity: 1; } }
+        .place-name { font-size: 20px; font-weight: 600; margin: 0 0 5px 0; }
+        .place-desc { font-size: 14px; color: #70757a; margin-bottom: 15px; }
+        .close-card { position: absolute; top: 20px; right: 20px; cursor: pointer; color: #70757a; }
+        .card-actions { display: flex; gap: 10px; }
+        .btn-action {
+            flex: 1; padding: 8px; border-radius: 20px; border: 1px solid #dadce0; background: white;
+            color: #1967d2; font-weight: 500; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px;
+        }
+        .maplibregl-ctrl-bottom-right { display: none; } /* ซ่อนโลโก้เดิม */
+    </style>
+</head>
+<body>
+
+    <a href="index.html" class="back-btn"><i class="fas fa-arrow-left"></i> กลับหน้าหลัก (AWS)</a>
+
+    <div class="top-container">
+        <div class="search-box">
+            <i class="fas fa-search search-icon"></i>
+            <input type="text" id="searchInput" placeholder="ค้นหาด้วย Pinpoint..." autocomplete="off">    
+            <div class="divider"></div>
+            <i class="fas fa-times action-icon" id="clearBtn" style="display:none;"></i>
+        </div>
+        <ul id="suggestions-list"></ul>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="telemetry-box">
+        <div><span class="tele-label">LAT:</span> <span id="hud-lat">00.0000</span></div>
+        <div><span class="tele-label">LNG:</span> <span id="hud-lng">000.0000</span></div>
+        <div><span class="tele-label">ZOOM:</span> <span id="hud-zoom">00.0</span></div>
+        <div><span class="tele-label">PROVIDER:</span> <span style="color:#1967d2">PINPOINT</span></div>
+    </div>
+
+    <div class="tools-panel">
+        <button class="tool-btn" id="btn3D" onclick="toggle3D()" title="3D Buildings"><i class="fas fa-cube"></i></button>
+        <button class="tool-btn" id="btnLocate" onclick="locateMe()" title="ตำแหน่งฉัน"><i class="fas fa-crosshairs"></i></button>
+    </div>
+
+    <div class="place-card" id="placeCard">
+        <i class="fas fa-times close-card" onclick="closeCard()"></i>
+        <h2 class="place-name" id="cardTitle">ชื่อสถานที่</h2>
+        <p class="place-desc" id="cardSubtitle">รายละเอียด...</p>
+        <div class="card-actions">
+            <button class="btn-action" onclick="getDirections()"><i class="fas fa-directions"></i> เส้นทาง</button>
+            <button class="btn-action" onclick="copyCoords()"><i class="fas fa-share-alt"></i> แชร์</button>
+        </div>
+    </div>
+
+    <script>
+        // ============================================================
+        // 🔴🔴 ตั้งค่า PINPOINT ตรงนี้ (สำคัญมาก) 🔴🔴
+        // ============================================================
+        // ไปที่ https://pin-point.co/portal/account/dashboard เพื่อหาค่าเหล่านี้
+        
+        const PINPOINT_API_KEY = '6ed36c1d300ee342d29514a9b23bad6bb16aaf9162dd326445ac95ddcab24ae196e28e0467f0a73b'; 
+        
+        // ลิงก์ Style ของแผนที่ (Vector Tile Style URL)
+        // ถ้าหาไม่เจอ ลองใช้ Format นี้: https://api.pin-point.co/maps/v1/styles/osm_bright.json?key=...
+        // หรือถ้า Pinpoint ให้มาเป็น XYZ Tile URL ให้แก้โค้ดด้านล่าง
+        const MAP_STYLE_URL = `https://pin-point.co/maps/v1/styles/osm_bright.json?key=${PINPOINT_API_KEY}`;
+        
+        // ============================================================
+
+        const map = new maplibregl.Map({
+            container: 'map',
+            style: MAP_STYLE_URL, // ใช้ Pinpoint Style
+            center: [100.5018, 13.7563], // กรุงเทพฯ
+            zoom: 13,
+            pitch: 0,
+            attributionControl: true
+        });
+
+        // Add Controls
+        map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
+        const geolocate = new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true });
+        map.addControl(geolocate);
+        function locateMe() { geolocate.trigger(); }
+
+        // ================= SEARCH (PINPOINT API) =================
+        const searchInput = document.getElementById('searchInput');
+        const suggestionsList = document.getElementById('suggestions-list');
+        const clearBtn = document.getElementById('clearBtn');
+        let debounceTimer;
+
+        searchInput.addEventListener('input', function() {
+            clearBtn.style.display = this.value.length > 0 ? 'block' : 'none';
+            clearTimeout(debounceTimer);
+            if (this.value.length < 3) { suggestionsList.style.display = 'none'; return; }
+            debounceTimer = setTimeout(() => fetchPinpointSuggestions(this.value), 500);
+        });
+
+        clearBtn.addEventListener('click', () => {
+            searchInput.value = ''; suggestionsList.style.display = 'none'; clearBtn.style.display = 'none';
+        });
+
+        // ฟังก์ชันเรียก API ค้นหาของ Pinpoint (ต้องปรับตาม Docs ของเขา)
+        async function fetchPinpointSuggestions(text) {
+            // URL นี้เป็นตัวอย่าง (สมมติ) คุณต้องเช็คใน Docs ว่าใช้ Endpoint ไหน
+            // เช่น: https://api.pin-point.co/api/v1/search/autocomplete
+            const url = `https://api.pin-point.co/api/v1/search/autocomplete?key=${PINPOINT_API_KEY}&keyword=${encodeURIComponent(text)}`;
+            
+            try {
+                // Pinpoint อาจจะต้องใช้ method POST หรือ GET ขึ้นอยู่กับ Docs
+                // อันนี้ลองแบบ GET
+                const res = await fetch(url);
+                const data = await res.json();
+                
+                // สมมติ data.data คือ array ผลลัพธ์
+                if (data && data.data) {
+                    renderSuggestions(data.data);
+                }
+            } catch(e) { 
+                console.error("Pinpoint Search Error:", e);
+            }
+        }
+
+        function renderSuggestions(results) {
+            suggestionsList.innerHTML = '';
+            if (results.length === 0) { suggestionsList.style.display = 'none'; return; }
+            
+            results.forEach(item => {
+                const li = document.createElement('li');
+                // item.name หรือ item.address ขึ้นอยู่กับโครงสร้างข้อมูลจริง
+                li.innerHTML = `<i class="fas fa-map-marker-alt" style="color:#777;"></i> <span>${item.name || item.address}</span>`;
+                li.onclick = () => {
+                    // ถ้ามี lat/lon มาเลยก็ใช้ได้เลย
+                    if(item.lat && item.lon) {
+                        goToLocation(item.lat, item.lon, item.name);
+                    } else {
+                        // ถ้าไม่มี ต้องเรียก API Geocode อีกรอบด้วย ID
+                        // fetchDetails(item.id)...
+                    }
+                    suggestionsList.style.display = 'none';
+                };
+                suggestionsList.appendChild(li);
+            });
+            suggestionsList.style.display = 'block';
+        }
+
+        function goToLocation(lat, lon, name) {
+            map.flyTo({ center: [lon, lat], zoom: 17 });
+            new maplibregl.Marker({ color: "#1967d2" }).setLngLat([lon, lat]).addTo(map);
+            showCard(name, `พิกัด: ${lat}, ${lon}`);
+        }
+
+        // ================= 3D BUILDINGS (Try to Force) =================
+        let is3D = false;
+        function toggle3D() {
+            is3D = !is3D;
+            const btn = document.getElementById('btn3D');
+            
+            if (is3D) {
+                btn.classList.add('active');
+                map.easeTo({ pitch: 60 });
+                add3DLayer();
+            } else {
+                btn.classList.remove('active');
+                map.easeTo({ pitch: 0 });
+                if (map.getLayer('3d-buildings')) map.removeLayer('3d-buildings');
+            }
+        }
+
+        function add3DLayer() {
+            // เราต้องหา Source ID ของ Pinpoint ให้เจอ
+            // ถ้า Pinpoint ใช้ OpenMapTiles มักจะเป็น 'openmaptiles' หรือ 'composite'
+            const style = map.getStyle();
+            let sourceId = Object.keys(style.sources)[0]; // เดาเอาตัวแรก
+
+            if (!map.getLayer('3d-buildings')) {
+                map.addLayer({
+                    'id': '3d-buildings',
+                    'source': sourceId,
+                    'source-layer': 'building', // ลองเดาชื่อ Layer
+                    'type': 'fill-extrusion',
+                    'minzoom': 14,
+                    'paint': {
+                        'fill-extrusion-color': '#aaa',
+                        'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.05, ['get', 'render_height']],
+                        'fill-extrusion-base': ['get', 'render_min_height'],
+                        'fill-extrusion-opacity': 0.8
+                    }
+                });
+            }
+        }
+
+        // ================= HELPERS (Card, Telemetry) =================
+        let selectedCoords = null;
+        function showCard(title, subtitle) {
+            document.getElementById('cardTitle').innerText = title || "ตำแหน่ง";
+            document.getElementById('cardSubtitle').innerText = subtitle;
+            document.getElementById('placeCard').style.display = 'block';
+        }
+        function closeCard() { document.getElementById('placeCard').style.display = 'none'; }
+        
+        map.on('mousemove', (e) => {
+            document.getElementById('hud-lat').innerText = e.lngLat.lat.toFixed(4);
+            document.getElementById('hud-lng').innerText = e.lngLat.lng.toFixed(4);
+        });
+        map.on('move', () => {
+            document.getElementById('hud-zoom').innerText = map.getZoom().toFixed(1);
+        });
+        
+        // Handle Click on Map
+        map.on('click', (e) => {
+            // Reverse Geocoding logic here (Optional)
+            // fetch(`https://api.pin-point.co/reverse?lat=${e.lngLat.lat}&lon=${e.lngLat.lng}...`)
+            
+            showCard("ตำแหน่งที่เลือก", `${e.lngLat.lat.toFixed(5)}, ${e.lngLat.lng.toFixed(5)}`);
+            selectedCoords = [e.lngLat.lng, e.lngLat.lat];
+        });
+
+        function getDirections() { 
+            if(selectedCoords) window.open(`https://www.google.com/maps/dir/?api=1&destination=${selectedCoords[1]},${selectedCoords[0]}`, '_blank'); 
+        }
+        function copyCoords() { 
+            if(selectedCoords) { navigator.clipboard.writeText(`${selectedCoords[1]}, ${selectedCoords[0]}`); alert("คัดลอกพิกัดแล้ว"); } 
+        }
+
+    </script>
+</body>
+</html>
