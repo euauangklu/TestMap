@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <meta http-equiv="Content-Security-Policy" content="default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;">
-
-    <title>Pinpoint Map (Final Fix)</title>
+    
+    <title>Pinpoint Map (Official API)</title>
     
     <link href="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
@@ -70,6 +70,19 @@
         }
         .btn-action:hover { background: #f1f8ff; }
         .maplibregl-ctrl-bottom-right { display: none; }
+        
+        .tools-panel {
+            position: absolute; bottom: 100px; right: 20px; z-index: 99;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .tool-btn {
+            width: 45px; height: 45px; background: white; border-radius: 50%;
+            box-shadow: 0 2px 6px rgba(0,0,0,0.3); border: none; cursor: pointer;
+            font-size: 18px; color: #555; display: flex; align-items: center; justify-content: center;
+            transition: 0.2s; position: relative;
+        }
+        .tool-btn:hover { background: #333; color: white; }
+        .tool-btn.active { background: #1967d2; color: white; }
     </style>
 </head>
 <body>
@@ -95,6 +108,11 @@
         <div><span class="tele-label">PROVIDER:</span> <span style="color:#1967d2">PINPOINT</span></div>
     </div>
 
+    <div class="tools-panel">
+        <button class="tool-btn" id="btn3D" onclick="toggle3D()" title="3D Buildings"><i class="fas fa-cube"></i></button>
+        <button class="tool-btn" id="btnLocate" onclick="locateMe()" title="ตำแหน่งฉัน"><i class="fas fa-crosshairs"></i></button>
+    </div>
+
     <div class="place-card" id="placeCard">
         <i class="fas fa-times close-card" onclick="closeCard()"></i>
         <h2 class="place-name" id="cardTitle">ชื่อสถานที่</h2>
@@ -107,30 +125,37 @@
 
     <script>
         // ============================================================
-        // 🔴 SETTINGS 
+        // 🔴 SETTINGS (ใช้ API Key ใหม่ที่คุณแก้ Referer แล้ว)
         // ============================================================
         
-        const PINPOINT_API_KEY = 'e7b9f96cf7ca04db6adbbb46bfa6d453a89dcdc5bc8dc55d20f6b86f1f39b7d46a46e455500bb80b'; 
+        // อย่าลืม! เอา Key ใหม่มาใส่ตรงนี้
+        const PINPOINT_API_KEY = 'a4924394299efc07cb11d8f1449f257b90ea000222ff06e35d231e42721567676c8e98dbf1bf2561'; 
 
-        const ORIGINAL_URL = `https://pin-point.co/maps/v1/styles/osm_bright.json?key=${PINPOINT_API_KEY}`;
-        const PROXY_URL = `https://api.allorigins.win/raw?url=${encodeURIComponent(ORIGINAL_URL)}`;
+        // ✅ URL ตามคู่มือ (ไม่มี api. นำหน้า)
+        const MAP_STYLE_URL = `https://pin-point.co/maps/v1/styles/osm_bright.json?key=${PINPOINT_API_KEY}`;
 
-        // ใช้ Proxy URL เพื่อแก้ปัญหา CORS และใช้ Meta Tag ด้านบนแก้ปัญหา CSP
+        // ============================================================
+
         const map = new maplibregl.Map({
             container: 'map',
-            style: PROXY_URL,
+            style: MAP_STYLE_URL, // เชื่อมต่อตรง
             center: [100.5018, 13.7563], 
             zoom: 13,
             pitch: 0,
             attributionControl: true
         });
 
-        // ============================================================
+        // Event ดักจับ Error เพื่อแจ้งเตือน
+        map.on('error', (e) => {
+            console.log('Map Error Details:', e); // ดูใน Console F12
+        });
 
         map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
         const geolocate = new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true });
         map.addControl(geolocate);
+        function locateMe() { geolocate.trigger(); }
 
+        // --- Search ---
         const searchInput = document.getElementById('searchInput');
         const suggestionsList = document.getElementById('suggestions-list');
         const clearBtn = document.getElementById('clearBtn');
@@ -148,12 +173,11 @@
         });
 
         async function fetchPinpointSuggestions(text) {
-            // ใช้ Proxy กับ Search API ด้วย
+            // URL ค้นหา (ปกติมักใช้ api.pin-point.co ลองใช้แบบมี api. ดูก่อนสำหรับ search)
             const searchUrl = `https://api.pin-point.co/api/v1/search/autocomplete?key=${PINPOINT_API_KEY}&keyword=${encodeURIComponent(text)}`;
-            const proxySearch = `https://api.allorigins.win/raw?url=${encodeURIComponent(searchUrl)}`;
-
+            
             try {
-                const res = await fetch(proxySearch);
+                const res = await fetch(searchUrl);
                 const data = await res.json();
                 if (data && data.data) renderSuggestions(data.data);
             } catch(e) { console.error(e); }
@@ -180,6 +204,42 @@
             map.flyTo({ center: [lon, lat], zoom: 17 });
             new maplibregl.Marker({ color: "#1967d2" }).setLngLat([lon, lat]).addTo(map);
             showCard(name, `พิกัด: ${lat}, ${lon}`);
+        }
+
+        // --- 3D & Helpers ---
+        let is3D = false;
+        function toggle3D() {
+            is3D = !is3D;
+            const btn = document.getElementById('btn3D');
+            if (is3D) {
+                btn.classList.add('active');
+                map.easeTo({ pitch: 60 });
+                add3DLayer();
+            } else {
+                btn.classList.remove('active');
+                map.easeTo({ pitch: 0 });
+                if (map.getLayer('3d-buildings')) map.removeLayer('3d-buildings');
+            }
+        }
+
+        function add3DLayer() {
+            const style = map.getStyle();
+            // พยายามหา Source ID ของ Pinpoint (มักจะเป็น 'pinpoint' หรือ 'osm')
+            let sourceId = Object.keys(style.sources)[0]; 
+            if (!map.getLayer('3d-buildings')) {
+                map.addLayer({
+                    'id': '3d-buildings',
+                    'source': sourceId,
+                    'source-layer': 'building', 
+                    'type': 'fill-extrusion',
+                    'minzoom': 14,
+                    'paint': {
+                        'fill-extrusion-color': '#aaa',
+                        'fill-extrusion-height': 20, // Force Height (เพราะ Pinpoint Basic อาจไม่มีความสูงตึก)
+                        'fill-extrusion-opacity': 0.8
+                    }
+                });
+            }
         }
 
         let selectedCoords = null;
