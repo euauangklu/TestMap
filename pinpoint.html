@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Pinpoint Map (Thailand)</title>
+    <title>Pinpoint Map (Fixed CORS)</title>
     
     <link href="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.css" rel="stylesheet" />
     <script src="https://unpkg.com/maplibre-gl@3.6.0/dist/maplibre-gl.js"></script>
@@ -11,11 +11,9 @@
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
 
     <style>
-        /* === ใช้ Style เดิมทั้งหมด เพื่อความต่อเนื่อง === */
+        /* STYLE เดิมทั้งหมด */
         body { margin: 0; padding: 0; font-family: 'Prompt', sans-serif; overflow: hidden; background: #f2f2f2; }
         #map { position: absolute; top: 0; bottom: 0; width: 100%; z-index: 0; }
-        
-        /* ปุ่มย้อนกลับ */
         .back-btn {
             position: absolute; top: 20px; left: 20px; z-index: 200;
             background: white; border: 1px solid #ccc; padding: 8px 15px;
@@ -24,8 +22,6 @@
             display: flex; align-items: center; gap: 5px;
         }
         .back-btn:hover { background: #eee; }
-
-        /* SEARCH BAR (ปรับตำแหน่งหลบปุ่ม Back) */
         .top-container { position: absolute; top: 70px; left: 20px; z-index: 100; width: 380px; max-width: 90%; }
         .search-box {
             background: white; border-radius: 24px; box-shadow: 0 2px 6px rgba(0,0,0,0.2);
@@ -36,15 +32,12 @@
         input[type="text"] { flex-grow: 1; border: none; outline: none; font-size: 16px; font-family: 'Prompt'; color: #202124; }
         .action-icon { cursor: pointer; color: #5f6368; padding: 8px; font-size: 18px; }
         .divider { width: 1px; height: 24px; background: #dfe1e5; margin: 0 8px; }
-
         #suggestions-list {
             list-style: none; margin: 5px 0 0 0; padding: 0; background: white; border-radius: 8px;
             box-shadow: 0 4px 6px rgba(0,0,0,0.2); max-height: 400px; overflow-y: auto; display: none;
         }
         #suggestions-list li { padding: 12px 18px; border-bottom: 1px solid #f1f3f4; cursor: pointer; display: flex; align-items: center; gap: 12px; }
         #suggestions-list li:hover { background-color: #f8f9fa; }
-
-        /* TOOLS & UI (เหมือนเดิม) */
         .telemetry-box {
             position: absolute; bottom: 40px; left: 20px; z-index: 90;
             background: rgba(255, 255, 255, 0.9); border-radius: 8px;
@@ -54,7 +47,6 @@
             border-left: 3px solid #1967d2; pointer-events: none;
         }
         .tele-label { font-weight: 700; color: #888; }
-
         .tools-panel {
             position: absolute; bottom: 100px; right: 20px; z-index: 99;
             display: flex; flex-direction: column; gap: 10px;
@@ -67,7 +59,6 @@
         }
         .tool-btn:hover { background: #333; color: white; }
         .tool-btn.active { background: #1967d2; color: white; }
-        
         .place-card {
             position: absolute; bottom: 25px; left: 50%; transform: translateX(-50%); width: 360px; max-width: 90%;
             background: white; border-radius: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.2);
@@ -82,12 +73,12 @@
             flex: 1; padding: 8px; border-radius: 20px; border: 1px solid #dadce0; background: white;
             color: #1967d2; font-weight: 500; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 6px;
         }
-        .maplibregl-ctrl-bottom-right { display: none; } /* ซ่อนโลโก้เดิม */
+        .maplibregl-ctrl-bottom-right { display: none; }
     </style>
 </head>
 <body>
 
-    <a href="index.html" class="back-btn"><i class="fas fa-arrow-left"></i> กลับหน้าหลัก (AWS)</a>
+    <a href="index.html" class="back-btn"><i class="fas fa-arrow-left"></i> กลับหน้าหลัก</a>
 
     <div class="top-container">
         <div class="search-box">
@@ -125,35 +116,34 @@
 
     <script>
         // ============================================================
-        // 🔴🔴 ตั้งค่า PINPOINT 🔴🔴
+        // 🔴 SETTINGS (แก้ CORS ด้วย Proxy)
         // ============================================================
         
         const PINPOINT_API_KEY = 'b17531c1a81a64ba7e13f3157c10ad30c0489b98cb81dadeb87b19f3dc6626fe56d02565b6ed4eb2'; 
-        
-        // ลิงก์เดิมของคุณ
-        const ORIGINAL_URL = `https://pin-point.co/maps/v1/styles/osm_bright.json?key=${PINPOINT_API_KEY}`;
 
-        // ✅ แก้โค้ด: ใช้ Proxy เพื่อทะลุบล็อก CORS (ใช้เฉพาะตอนทดสอบ/TestMap)
-        const MAP_STYLE_URL = `https://api.allorigins.win/raw?url=${encodeURIComponent(ORIGINAL_URL)}`;
+        // 1. ลิงก์ต้นฉบับจาก Pinpoint (ที่ถูกต้อง)
+        const ORIGINAL_URL = `https://pin-point.co/maps/v1/styles/osm_bright.json?key=${PINPOINT_API_KEY}`;
         
-        // ============================================================
+        // 2. ลิงก์ผ่าน Proxy (เพื่อทะลุบล็อก CORS บน GitHub Pages)
+        // เราใช้ 'api.allorigins.win' เป็นตัวกลางในการไปดึงข้อมูลมาให้
+        const PROXY_URL = `https://api.allorigins.win/raw?url=${encodeURIComponent(ORIGINAL_URL)}`;
 
         const map = new maplibregl.Map({
             container: 'map',
-            style: MAP_STYLE_URL, // ใช้ Pinpoint Style
-            center: [100.5018, 13.7563], // กรุงเทพฯ
+            style: PROXY_URL, // ✅ ใช้ลิงก์ Proxy แทน
+            center: [100.5018, 13.7563], 
             zoom: 13,
             pitch: 0,
             attributionControl: true
         });
 
-        // Add Controls
+        // ============================================================
+
         map.addControl(new maplibregl.NavigationControl({ showCompass: true }), 'bottom-right');
         const geolocate = new maplibregl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true });
         map.addControl(geolocate);
         function locateMe() { geolocate.trigger(); }
 
-        // ================= SEARCH (PINPOINT API) =================
         const searchInput = document.getElementById('searchInput');
         const suggestionsList = document.getElementById('suggestions-list');
         const clearBtn = document.getElementById('clearBtn');
@@ -170,42 +160,28 @@
             searchInput.value = ''; suggestionsList.style.display = 'none'; clearBtn.style.display = 'none';
         });
 
-        // ฟังก์ชันเรียก API ค้นหาของ Pinpoint (ต้องปรับตาม Docs ของเขา)
+        // ใช้ Proxy กับ Search ด้วย (กันเหนียว)
         async function fetchPinpointSuggestions(text) {
-            // URL นี้เป็นตัวอย่าง (สมมติ) คุณต้องเช็คใน Docs ว่าใช้ Endpoint ไหน
-            // เช่น: https://api.pin-point.co/api/v1/search/autocomplete
-            const url = `https://api.pin-point.co/api/v1/search/autocomplete?key=${PINPOINT_API_KEY}&keyword=${encodeURIComponent(text)}`;
-            
+            // URL Search ของ Pinpoint (ตัวอย่าง)
+            const searchUrl = `https://api.pin-point.co/api/v1/search/autocomplete?key=${PINPOINT_API_KEY}&keyword=${encodeURIComponent(text)}`;
+            const proxySearch = `https://api.allorigins.win/raw?url=${encodeURIComponent(searchUrl)}`;
+
             try {
-                // Pinpoint อาจจะต้องใช้ method POST หรือ GET ขึ้นอยู่กับ Docs
-                // อันนี้ลองแบบ GET
-                const res = await fetch(url);
+                const res = await fetch(proxySearch);
                 const data = await res.json();
-                
-                // สมมติ data.data คือ array ผลลัพธ์
-                if (data && data.data) {
-                    renderSuggestions(data.data);
-                }
-            } catch(e) { 
-                console.error("Pinpoint Search Error:", e);
-            }
+                if (data && data.data) renderSuggestions(data.data);
+            } catch(e) { console.error(e); }
         }
 
         function renderSuggestions(results) {
             suggestionsList.innerHTML = '';
             if (results.length === 0) { suggestionsList.style.display = 'none'; return; }
-            
             results.forEach(item => {
                 const li = document.createElement('li');
-                // item.name หรือ item.address ขึ้นอยู่กับโครงสร้างข้อมูลจริง
                 li.innerHTML = `<i class="fas fa-map-marker-alt" style="color:#777;"></i> <span>${item.name || item.address}</span>`;
                 li.onclick = () => {
-                    // ถ้ามี lat/lon มาเลยก็ใช้ได้เลย
                     if(item.lat && item.lon) {
                         goToLocation(item.lat, item.lon, item.name);
-                    } else {
-                        // ถ้าไม่มี ต้องเรียก API Geocode อีกรอบด้วย ID
-                        // fetchDetails(item.id)...
                     }
                     suggestionsList.style.display = 'none';
                 };
@@ -220,12 +196,10 @@
             showCard(name, `พิกัด: ${lat}, ${lon}`);
         }
 
-        // ================= 3D BUILDINGS (Try to Force) =================
         let is3D = false;
         function toggle3D() {
             is3D = !is3D;
             const btn = document.getElementById('btn3D');
-            
             if (is3D) {
                 btn.classList.add('active');
                 map.easeTo({ pitch: 60 });
@@ -238,29 +212,24 @@
         }
 
         function add3DLayer() {
-            // เราต้องหา Source ID ของ Pinpoint ให้เจอ
-            // ถ้า Pinpoint ใช้ OpenMapTiles มักจะเป็น 'openmaptiles' หรือ 'composite'
             const style = map.getStyle();
-            let sourceId = Object.keys(style.sources)[0]; // เดาเอาตัวแรก
-
+            let sourceId = Object.keys(style.sources)[0];
             if (!map.getLayer('3d-buildings')) {
                 map.addLayer({
                     'id': '3d-buildings',
                     'source': sourceId,
-                    'source-layer': 'building', // ลองเดาชื่อ Layer
+                    'source-layer': 'building',
                     'type': 'fill-extrusion',
                     'minzoom': 14,
                     'paint': {
                         'fill-extrusion-color': '#aaa',
-                        'fill-extrusion-height': ['interpolate', ['linear'], ['zoom'], 14, 0, 14.05, ['get', 'render_height']],
-                        'fill-extrusion-base': ['get', 'render_min_height'],
+                        'fill-extrusion-height': 20,
                         'fill-extrusion-opacity': 0.8
                     }
                 });
             }
         }
 
-        // ================= HELPERS (Card, Telemetry) =================
         let selectedCoords = null;
         function showCard(title, subtitle) {
             document.getElementById('cardTitle').innerText = title || "ตำแหน่ง";
@@ -277,11 +246,7 @@
             document.getElementById('hud-zoom').innerText = map.getZoom().toFixed(1);
         });
         
-        // Handle Click on Map
         map.on('click', (e) => {
-            // Reverse Geocoding logic here (Optional)
-            // fetch(`https://api.pin-point.co/reverse?lat=${e.lngLat.lat}&lon=${e.lngLat.lng}...`)
-            
             showCard("ตำแหน่งที่เลือก", `${e.lngLat.lat.toFixed(5)}, ${e.lngLat.lng.toFixed(5)}`);
             selectedCoords = [e.lngLat.lng, e.lngLat.lat];
         });
@@ -292,7 +257,6 @@
         function copyCoords() { 
             if(selectedCoords) { navigator.clipboard.writeText(`${selectedCoords[1]}, ${selectedCoords[0]}`); alert("คัดลอกพิกัดแล้ว"); } 
         }
-
     </script>
 </body>
 </html>
